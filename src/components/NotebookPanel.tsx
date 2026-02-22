@@ -12,38 +12,47 @@ interface NotebookCell {
 const INITIAL_CELLS: NotebookCell[] = [
   {
     id: 1,
-    code: `# verify_project.py — Veritas Ground Truth
-# Run this cell to check module wiring
+    code: `# verify_integration.py — Veritas Ground Truth
+# Entry point: run_sim.py
+# Scans: core, agents, adapters, integrations, api, simulation_server
+# Classifies: WIRED | NOT_WIRED | TEST | CONFIG
 
-from verify_project import main
+from verify_integration import main
 exit_code = main()
 print(f"Exit code: {exit_code}")`,
-    output: `[INFO] Scanned 17 Python modules
-[INFO] Found 8 transitively imported modules
+    output: `[INFO] Scanned 31 Python modules
+[INFO] Found 12 transitively imported modules
 ======================================================================
-       NEXUS AI — Veritas Ground Truth Report
+  VERIFY INTEGRATION REPORT
 ======================================================================
-       Total modules scanned : 17
-       WIRED          :    8 (47%)
-       NOT_WIRED      :    4 (24%)
-       TEST           :    3 (18%)
-       CONFIG         :    2 (12%)
+  Total modules scanned: 31
+  WIRED:       12  (39%)
+  NOT_WIRED:   12  (39%)
+  TEST:         5  (16%)
+  CONFIG:       2  ( 6%)
 ----------------------------------------------------------------------
 
-       [CRITICAL] 2 critical modules NOT WIRED:
-       - core/features/registry.py
-       - core/cognition/outcome_tracker.py
+  [CRITICAL] 8 critical modules NOT WIRED:
+    - core/features/registry.py
+    - core/orchestrator/llm_router.py
+    - core/orchestrator/arbitrator.py
+    - core/cognition/constellation_db.py
+    - core/cognition/inverse_projection.py
+    - core/cognition/conviction_engine.py
+    - core/cognition/outcome_tracker.py
+    - agents/alpha_agent.py
 ======================================================================
-EXIT CODE: 1 (2 critical modules NOT WIRED)
+EXIT CODE: 1 (8 critical modules missing)
 Agent cannot declare phase COMPLETE until all CRITICAL are WIRED.`,
     status: 'error',
   },
   {
     id: 2,
-    code: `# Test individual module wiring
+    code: `# AST Import Extractor — check wiring for a single module
 import ast
 
-def check_imports(filepath):
+def extract_imports(filepath):
+    """Extract all imported module names from a Python file using AST."""
     with open(filepath) as f:
         tree = ast.parse(f.read())
     imports = []
@@ -56,21 +65,39 @@ def check_imports(filepath):
                 imports.append(node.module)
     return imports
 
-imports = check_imports('core/events.py')
-print(f"Imports found: {len(imports)}")
-for imp in imports:
+# Check run_sim.py entry point
+imports = extract_imports('run_sim.py')
+print(f"run_sim.py imports ({len(imports)} modules):")
+for imp in sorted(imports):
     print(f"  → {imp}")`,
-    output: `Imports found: 4
+    output: `run_sim.py imports (6 modules):
   → core.data.ingestion
   → core.data.normalizer
+  → core.events
   → core.execution.oms
-  → core.risk.pre_trade`,
+  → core.risk.pre_trade
+  → core.strategy.trend`,
     status: 'success',
   },
   {
     id: 3,
-    code: `# Write your test here...
-`,
+    code: `# Check critical modules status
+CRITICAL = {
+    "core/features/registry.py",
+    "core/orchestrator/llm_router.py",
+    "core/orchestrator/arbitrator.py",
+    "core/cognition/constellation_db.py",
+    "core/cognition/inverse_projection.py",
+    "core/cognition/conviction_engine.py",
+    "core/cognition/outcome_tracker.py",
+    "agents/alpha_agent.py",
+}
+
+print(f"Critical NOT_WIRED: {len(CRITICAL)}/20")
+print(f"Wired critical:     12/20")
+print(f"Coverage:           60%")
+print()
+print("⚠ Agent BLOCKED — cannot advance past Phase 6A")`,
     output: null,
     status: 'idle',
   },

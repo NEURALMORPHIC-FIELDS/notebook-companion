@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { SDLC_PHASES, AGENTS, MOCK_MODULES } from "@/data/nexus-data";
-import { CheckCircle, Clock, AlertTriangle, Lock, Zap, Shield, Bot, Activity } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, Lock, Zap, Shield, Bot, Activity, ArrowUpRight } from "lucide-react";
+import AgentIcon from "@/components/AgentIcon";
 
 const statusIcon = (status: string) => {
   switch (status) {
@@ -71,9 +72,11 @@ export default function Dashboard() {
       {/* Two-column layout */}
       <div className="grid grid-cols-3 gap-6">
         {/* SDLC Phases */}
-        <div className="col-span-2 nexus-card rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Activity size={14} className="text-primary" />
+        <div className="col-span-2 nexus-card rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+              <Activity size={13} />
+            </div>
             SDLC Phases
           </h2>
           <div className="space-y-1">
@@ -83,7 +86,7 @@ export default function Dashboard() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className={`flex items-center gap-3 px-3 py-2 rounded text-xs transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-colors ${
                   phase.status === 'in-progress' ? 'bg-nexus-surface-hover nexus-border-glow border' : 'hover:bg-nexus-surface-hover border border-transparent'
                 }`}
               >
@@ -99,9 +102,11 @@ export default function Dashboard() {
         </div>
 
         {/* Agents Panel */}
-        <div className="nexus-card rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Bot size={14} className="text-primary" />
+        <div className="nexus-card rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+              <Bot size={13} />
+            </div>
             Agent Status
           </h2>
           <div className="space-y-1.5">
@@ -111,9 +116,9 @@ export default function Dashboard() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: i * 0.03 }}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-nexus-surface-hover"
+                className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs hover:bg-nexus-surface-hover transition-colors"
               >
-                <span className="text-base">{agent.icon}</span>
+                <AgentIcon icon={agent.icon} color={agent.color} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="text-secondary-foreground truncate">{agent.name}</div>
                 </div>
@@ -125,21 +130,23 @@ export default function Dashboard() {
       </div>
 
       {/* Veritas Quick View */}
-      <div className="nexus-card rounded-lg p-4">
-        <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Shield size={14} className="text-primary" />
+      <div className="nexus-card rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+            <Shield size={13} />
+          </div>
           Veritas Ground Truth — Module State Matrix
         </h2>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-3">
           {['WIRED', 'NOT_WIRED', 'TEST', 'CONFIG'].map(cat => {
             const modules = MOCK_MODULES.filter(m => m.category === cat);
             const color = cat === 'WIRED' ? 'nexus-green' : cat === 'NOT_WIRED' ? 'nexus-red' : cat === 'TEST' ? 'nexus-blue' : 'nexus-text-dim';
             return (
-              <div key={cat} className="rounded-md bg-nexus-surface-hover p-3">
-                <div className="flex items-center gap-2 mb-2">
+              <div key={cat} className="rounded-xl bg-nexus-surface-hover/60 p-3.5 border border-transparent hover:border-nexus-border-subtle transition-colors">
+                <div className="flex items-center gap-2 mb-2.5">
                   <div className={`w-2 h-2 rounded-full bg-${color}`} />
                   <span className="text-xs font-mono font-semibold text-secondary-foreground">{cat}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{modules.length}</span>
+                  <span className="text-xs text-muted-foreground ml-auto font-mono">{modules.length}</span>
                 </div>
                 <div className="space-y-0.5">
                   {modules.map(m => (
@@ -171,17 +178,25 @@ function StatCard({ icon, label, value, sub, color }: {
     green: 'text-nexus-green',
     amber: 'text-nexus-amber',
   };
+  const bgMap: Record<string, string> = {
+    primary: 'bg-primary/10',
+    destructive: 'bg-destructive/10',
+    green: 'bg-nexus-green/10',
+    amber: 'bg-nexus-amber/10',
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="nexus-card rounded-lg p-4"
+      className="nexus-card rounded-xl p-4 group hover:nexus-border-glow transition-all duration-300"
     >
-      <div className="flex items-center gap-2 mb-2">
-        <span className={colorMap[color] || 'text-primary'}>{icon}</span>
-        <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className={`w-8 h-8 rounded-lg ${bgMap[color] || 'bg-primary/10'} ${colorMap[color] || 'text-primary'} flex items-center justify-center`}>
+          {icon}
+        </div>
+        <span className="text-xs text-muted-foreground font-medium">{label}</span>
       </div>
-      <div className={`text-xl font-bold font-mono ${colorMap[color] || 'text-foreground'}`}>{value}</div>
+      <div className={`text-2xl font-bold font-mono ${colorMap[color] || 'text-foreground'}`}>{value}</div>
       <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>
     </motion.div>
   );

@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { ExternalLink, Key, Check, AlertCircle } from "lucide-react";
 import { AGENT_SERVICES, type AgentApiConfig, type AgentService } from "@/data/agent-services";
 import type { Agent } from "@/data/nexus-data";
+import AgentIcon from "@/components/AgentIcon";
 
 interface AgentConfigPopoverProps {
   agent: Agent;
@@ -67,8 +68,8 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
       >
         {/* Header */}
         <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{agent.icon}</span>
+          <div className="flex items-center gap-3">
+            <AgentIcon icon={agent.icon} color={agent.color} size="md" />
             <div>
               <h3 className="text-sm font-bold text-foreground">{agent.name}</h3>
               <p className="text-[11px] text-muted-foreground">{agent.role}</p>

@@ -27,11 +27,11 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
     <motion.aside
       animate={{ width: collapsed ? 64 : 240 }}
       transition={{ duration: 0.2 }}
-      className="h-screen flex flex-col bg-nexus-deep border-r border-nexus-border-subtle"
+      className="h-screen flex flex-col bg-nexus-deep border-r border-nexus-border-subtle backdrop-blur-xl"
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-14 border-b border-nexus-border-subtle">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-nexus-blue flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/20">
           <Zap size={16} className="text-primary-foreground" />
         </div>
         <AnimatePresence>
@@ -57,9 +57,9 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => onViewChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-150 ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
                 isActive
-                  ? 'bg-secondary text-primary nexus-border-glow border'
+                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/5'
                   : 'text-muted-foreground hover:text-foreground hover:bg-nexus-surface-hover border border-transparent'
               }`}
             >

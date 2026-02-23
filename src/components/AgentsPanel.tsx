@@ -3,13 +3,14 @@ import { motion } from "framer-motion";
 import { AGENTS } from "@/data/nexus-data";
 import { Sparkles, Settings2, Check, AlertCircle } from "lucide-react";
 import AgentConfigPopover from "@/components/AgentConfigPopover";
+import AgentIcon from "@/components/AgentIcon";
 import { type AgentApiConfig, loadAgentConfigs, saveAgentConfigs } from "@/data/agent-services";
 
 const statusLabel: Record<string, { text: string; color: string }> = {
-  active: { text: 'ACTIVE', color: 'bg-nexus-green-dim text-nexus-green' },
-  working: { text: 'WORKING', color: 'bg-nexus-amber-dim text-nexus-amber' },
-  blocked: { text: 'BLOCKED', color: 'bg-nexus-red-dim text-nexus-red' },
-  idle: { text: 'IDLE', color: 'bg-muted text-muted-foreground' },
+  active: { text: 'ACTIVE', color: 'bg-nexus-green/15 text-nexus-green ring-1 ring-nexus-green/20' },
+  working: { text: 'WORKING', color: 'bg-nexus-amber/15 text-nexus-amber ring-1 ring-nexus-amber/20' },
+  blocked: { text: 'BLOCKED', color: 'bg-nexus-red/15 text-nexus-red ring-1 ring-nexus-red/20' },
+  idle: { text: 'IDLE', color: 'bg-muted text-muted-foreground ring-1 ring-border' },
 };
 
 export default function AgentsPanel() {
@@ -37,7 +38,7 @@ export default function AgentsPanel() {
       </div>
 
       {/* Behavioral Rules Banner */}
-      <div className="nexus-card rounded-lg p-4 nexus-border-glow border">
+      <div className="nexus-card rounded-xl p-4 nexus-border-glow border">
         <h3 className="text-xs font-semibold text-primary mb-2 flex items-center gap-2">
           <Sparkles size={12} />
           v6 Behavioral Rules Active
@@ -68,16 +69,16 @@ export default function AgentsPanel() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className={`nexus-card rounded-lg p-4 hover:bg-nexus-surface-hover transition-colors cursor-pointer ${
+                className={`nexus-card rounded-xl p-4 hover:bg-nexus-surface-hover transition-all duration-200 cursor-pointer group ${
                   connected > 0 ? 'nexus-border-glow border' : ''
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="text-2xl">{agent.icon}</div>
+                  <AgentIcon icon={agent.icon} color={agent.color} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">{agent.name}</span>
-                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${st.color}`}>
+                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md ${st.color}`}>
                         {st.text}
                       </span>
                     </div>
@@ -90,7 +91,7 @@ export default function AgentsPanel() {
                           <Check size={9} /> {connected} API{connected > 1 ? 's' : ''} connected
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-muted-foreground">
+                        <span className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
                           <Settings2 size={9} /> Click to configure
                         </span>
                       )}

@@ -33,23 +33,24 @@ export interface Agent {
   role: string;
   status: 'active' | 'idle' | 'working' | 'blocked';
   icon: string;
+  color: string;
 }
 
 export const AGENTS: Agent[] = [
-  { id: 'pm', name: 'Project Manager', role: 'Orchestration & FAS', status: 'active', icon: '📋' },
-  { id: 'architect', name: 'Architect', role: 'ADR & System Design', status: 'working', icon: '🏗️' },
-  { id: 'devils-advocate', name: "Devil's Advocate", role: 'Contestation & Verification', status: 'active', icon: '😈' },
-  { id: 'tech-lead', name: 'Tech Lead', role: 'Tech Spec & Standards', status: 'idle', icon: '⚙️' },
-  { id: 'backend', name: 'Backend Engineer', role: 'Server & API Code', status: 'idle', icon: '🔧' },
-  { id: 'frontend', name: 'Frontend Engineer', role: 'UI & Components', status: 'idle', icon: '🎨' },
-  { id: 'qa', name: 'QA Engineer', role: 'Testing & Coverage', status: 'idle', icon: '🧪' },
-  { id: 'security', name: 'Security Auditor', role: 'OWASP & Vulnerabilities', status: 'idle', icon: '🔒' },
-  { id: 'code-reviewer', name: 'Code Reviewer', role: 'Review & Silent Drop Check', status: 'idle', icon: '👁️' },
-  { id: 'tech-writer', name: 'Tech Writer', role: 'Documentation', status: 'idle', icon: '📝' },
-  { id: 'devops', name: 'DevOps Engineer', role: 'CI/CD & Deployment', status: 'idle', icon: '🚀' },
-  { id: 'brand', name: 'Brand Designer', role: 'Visual Identity', status: 'idle', icon: '💎' },
-  { id: 'uiux', name: 'UI/UX Designer', role: 'Design System & Wireframes', status: 'idle', icon: '✏️' },
-  { id: 'asset-gen', name: 'Asset Generator', role: 'Images & Icons', status: 'idle', icon: '🖼️' },
+  { id: 'pm', name: 'Project Manager', role: 'Orchestration & FAS', status: 'active', icon: 'kanban', color: 'nexus-cyan' },
+  { id: 'architect', name: 'Architect', role: 'ADR & System Design', status: 'working', icon: 'blocks', color: 'nexus-purple' },
+  { id: 'devils-advocate', name: "Devil's Advocate", role: 'Contestation & Verification', status: 'active', icon: 'flame', color: 'nexus-red' },
+  { id: 'tech-lead', name: 'Tech Lead', role: 'Tech Spec & Standards', status: 'idle', icon: 'cpu', color: 'nexus-blue' },
+  { id: 'backend', name: 'Backend Engineer', role: 'Server & API Code', status: 'idle', icon: 'server', color: 'nexus-green' },
+  { id: 'frontend', name: 'Frontend Engineer', role: 'UI & Components', status: 'idle', icon: 'monitor', color: 'nexus-cyan' },
+  { id: 'qa', name: 'QA Engineer', role: 'Testing & Coverage', status: 'idle', icon: 'flask-conical', color: 'nexus-amber' },
+  { id: 'security', name: 'Security Auditor', role: 'OWASP & Vulnerabilities', status: 'idle', icon: 'shield-check', color: 'nexus-red' },
+  { id: 'code-reviewer', name: 'Code Reviewer', role: 'Review & Silent Drop Check', status: 'idle', icon: 'scan-eye', color: 'nexus-purple' },
+  { id: 'tech-writer', name: 'Tech Writer', role: 'Documentation', status: 'idle', icon: 'book-open', color: 'nexus-blue' },
+  { id: 'devops', name: 'DevOps Engineer', role: 'CI/CD & Deployment', status: 'idle', icon: 'rocket', color: 'nexus-amber' },
+  { id: 'brand', name: 'Brand Designer', role: 'Visual Identity', status: 'idle', icon: 'gem', color: 'nexus-purple' },
+  { id: 'uiux', name: 'UI/UX Designer', role: 'Design System & Wireframes', status: 'idle', icon: 'pen-tool', color: 'nexus-cyan' },
+  { id: 'asset-gen', name: 'Asset Generator', role: 'Images & Icons', status: 'idle', icon: 'image', color: 'nexus-green' },
 ];
 
 export interface ModuleState {

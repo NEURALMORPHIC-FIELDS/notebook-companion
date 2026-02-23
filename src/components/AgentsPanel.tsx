@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AGENTS } from "@/data/nexus-data";
-import { Bot, Cpu, MessageSquare, Sparkles } from "lucide-react";
+import { Sparkles, Settings2, Check, AlertCircle } from "lucide-react";
+import AgentConfigPopover from "@/components/AgentConfigPopover";
+import { type AgentApiConfig, loadAgentConfigs, saveAgentConfigs } from "@/data/agent-services";
 
 const statusLabel: Record<string, { text: string; color: string }> = {
   active: { text: 'ACTIVE', color: 'bg-nexus-green-dim text-nexus-green' },
@@ -10,11 +13,27 @@ const statusLabel: Record<string, { text: string; color: string }> = {
 };
 
 export default function AgentsPanel() {
+  const [configs, setConfigs] = useState<Record<string, AgentApiConfig[]>>({});
+
+  useEffect(() => {
+    setConfigs(loadAgentConfigs());
+  }, []);
+
+  const handleSave = (agentId: string, agentConfigs: AgentApiConfig[]) => {
+    const updated = { ...configs, [agentId]: agentConfigs };
+    setConfigs(updated);
+    saveAgentConfigs(updated);
+  };
+
+  const getConnectedCount = (agentId: string) => {
+    return (configs[agentId] || []).filter(c => c.enabled && c.apiKey).length;
+  };
+
   return (
     <div className="flex-1 overflow-auto p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold nexus-gradient-text">Agent Orchestra</h1>
-        <p className="text-sm text-muted-foreground mt-1">14 specialized agents replicating a full development team.</p>
+        <p className="text-sm text-muted-foreground mt-1">14 specialized agents — configure API services per role.</p>
       </div>
 
       {/* Behavioral Rules Banner */}
@@ -36,39 +55,50 @@ export default function AgentsPanel() {
       <div className="grid grid-cols-2 gap-4">
         {AGENTS.map((agent, i) => {
           const st = statusLabel[agent.status];
-          return (
-            <motion.div
-              key={agent.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className={`nexus-card rounded-lg p-4 hover:bg-nexus-surface-hover transition-colors cursor-pointer ${
-                agent.status === 'working' ? 'nexus-border-glow border' : ''
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">{agent.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">{agent.name}</span>
-                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${st.color}`}>
-                      {st.text}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{agent.role}</p>
+          const connected = getConnectedCount(agent.id);
 
-                  {/* Mock stats */}
-                  <div className="flex items-center gap-4 mt-3 text-[10px] text-nexus-text-dim font-mono">
-                    <span className="flex items-center gap-1">
-                      <Cpu size={9} /> {Math.floor(Math.random() * 5000 + 200)} tokens
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare size={9} /> {Math.floor(Math.random() * 20)} msgs
-                    </span>
+          return (
+            <AgentConfigPopover
+              key={agent.id}
+              agent={agent}
+              configs={configs[agent.id] || []}
+              onSave={handleSave}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className={`nexus-card rounded-lg p-4 hover:bg-nexus-surface-hover transition-colors cursor-pointer ${
+                  connected > 0 ? 'nexus-border-glow border' : ''
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">{agent.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{agent.name}</span>
+                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${st.color}`}>
+                        {st.text}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{agent.role}</p>
+
+                    {/* Connection status */}
+                    <div className="flex items-center gap-2 mt-3 text-[10px] font-mono">
+                      {connected > 0 ? (
+                        <span className="flex items-center gap-1 text-nexus-green">
+                          <Check size={9} /> {connected} API{connected > 1 ? 's' : ''} connected
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Settings2 size={9} /> Click to configure
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </AgentConfigPopover>
           );
         })}
       </div>

@@ -175,8 +175,8 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                           <ExternalLink size={10} />
                         </a>
 
-                        {/* Only show "Custom API" toggle if the service is configured with a key and enabled */}
-                        {hasKey && isEnabled && (
+                        {/* Always show "Custom API" toggle if the service is enabled */}
+                        {isEnabled && (
                           <button
                             onClick={() => setExpandedAdvanced(expandedAdvanced === service.id ? null : service.id)}
                             className="text-[10px] text-muted-foreground hover:text-foreground font-mono ml-auto"
@@ -188,7 +188,7 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                     )}
 
                     {/* Advanced Custom Endpoints */}
-                    {expandedAdvanced === service.id && hasKey && isEnabled && (
+                    {expandedAdvanced === service.id && isEnabled && (
                       <div className="mt-3 p-3 bg-white/5 rounded border border-border/50 flex flex-col gap-2.5">
                         <div className="space-y-1">
                           <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Base URL</label>

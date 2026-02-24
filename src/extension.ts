@@ -32,6 +32,12 @@ export function deactivate() {
 }
 
 // Simple test run for manual invocation
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+
+const isMainModule = typeof require !== 'undefined'
+    ? require.main === module
+    : process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
     activate().catch(console.error);
 }

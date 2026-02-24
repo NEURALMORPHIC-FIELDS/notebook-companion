@@ -34,6 +34,9 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
       [service.id]: {
         serviceId: service.id,
         apiKey: existing?.apiKey || "",
+        baseUrl: existing?.baseUrl || "",
+        chatApi: existing?.chatApi || "",
+        model: existing?.model || "",
         enabled,
       },
     };
@@ -41,21 +44,20 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
     onSave(agent.id, Object.values(updated));
   };
 
-  const handleSaveKey = (serviceId: string) => {
+  const handleSaveData = (serviceId: string, updates: Partial<AgentApiConfig>) => {
+    const existing = localConfigs[serviceId] || { serviceId, apiKey: "", enabled: true };
     const updated = {
       ...localConfigs,
       [serviceId]: {
-        ...localConfigs[serviceId],
-        serviceId,
-        apiKey: keyInput,
-        enabled: true,
+        ...existing,
+        ...updates,
       },
     };
     setLocalConfigs(updated);
     onSave(agent.id, Object.values(updated));
-    setEditingKey(null);
-    setKeyInput("");
   };
+
+  const [expandedAdvanced, setExpandedAdvanced] = useState<string | null>(null);
 
   return (
     <Popover>
@@ -123,25 +125,37 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                 {isEnabled && (
                   <div className="mt-2">
                     {editingKey === service.id ? (
-                      <div className="flex gap-1.5">
-                        <input
-                          type="password"
-                          value={keyInput}
-                          onChange={(e) => setKeyInput(e.target.value)}
-                          placeholder={service.placeholder}
-                          className="flex-1 h-7 px-2 text-[11px] font-mono bg-muted border border-border rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && keyInput.trim()) handleSaveKey(service.id);
-                            if (e.key === 'Escape') { setEditingKey(null); setKeyInput(""); }
-                          }}
-                        />
-                        <button
-                          onClick={() => keyInput.trim() && handleSaveKey(service.id)}
-                          className="h-7 px-2 text-[10px] font-mono font-bold rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                        >
-                          SAVE
-                        </button>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-1.5">
+                          <input
+                            type="password"
+                            value={keyInput}
+                            onChange={(e) => setKeyInput(e.target.value)}
+                            placeholder={service.placeholder}
+                            className="flex-1 h-7 px-2 text-[11px] font-mono bg-muted border border-border rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && keyInput.trim()) {
+                                handleSaveData(service.id, { apiKey: keyInput });
+                                setEditingKey(null);
+                                setKeyInput("");
+                              }
+                              if (e.key === 'Escape') { setEditingKey(null); setKeyInput(""); }
+                            }}
+                          />
+                          <button
+                            onClick={() => {
+                              if (keyInput.trim()) {
+                                handleSaveData(service.id, { apiKey: keyInput });
+                                setEditingKey(null);
+                                setKeyInput("");
+                              }
+                            }}
+                            className="h-7 px-2 text-[10px] font-mono font-bold rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                          >
+                            SAVE
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -160,6 +174,52 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                         >
                           <ExternalLink size={10} />
                         </a>
+
+                        {/* Only show "Custom API" toggle if the service is configured with a key and enabled */}
+                        {hasKey && isEnabled && (
+                          <button
+                            onClick={() => setExpandedAdvanced(expandedAdvanced === service.id ? null : service.id)}
+                            className="text-[10px] text-muted-foreground hover:text-foreground font-mono ml-auto"
+                          >
+                            {expandedAdvanced === service.id ? 'Hide Custom API' : 'Custom API (Advanced)'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Advanced Custom Endpoints */}
+                    {expandedAdvanced === service.id && hasKey && isEnabled && (
+                      <div className="mt-3 p-3 bg-white/5 rounded border border-border/50 flex flex-col gap-2.5">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Base URL</label>
+                          <input
+                            type="text"
+                            value={cfg.baseUrl || ""}
+                            onChange={(e) => handleSaveData(service.id, { baseUrl: e.target.value })}
+                            placeholder="https://.../v1"
+                            className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Chat API Endpoint</label>
+                          <input
+                            type="text"
+                            value={cfg.chatApi || ""}
+                            onChange={(e) => handleSaveData(service.id, { chatApi: e.target.value })}
+                            placeholder="https://.../v1/chat/completions"
+                            className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Model</label>
+                          <input
+                            type="text"
+                            value={cfg.model || ""}
+                            onChange={(e) => handleSaveData(service.id, { model: e.target.value })}
+                            placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+                            className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

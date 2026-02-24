@@ -106,6 +106,8 @@ export const AGENT_SERVICES: Record<string, AgentService[]> = {
 export interface AgentApiConfig {
   serviceId: string;
   apiKey: string;
+  baseUrl?: string;
+  chatApi?: string;
   model?: string;
   enabled: boolean;
 }

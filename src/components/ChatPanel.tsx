@@ -32,9 +32,11 @@ function getNow() {
 function getActivePmConfig(): AgentApiConfig | null {
   const allConfigs = loadAgentConfigs();
   const pmConfigs = allConfigs['pm'] || [];
-  // Find the first enabled config with an API key or custom URL
-  const custom = pmConfigs.find(c => c.serviceId === 'custom' && c.enabled && (c.baseUrl || c.chatApi));
+  console.log('[PM ChatPanel] PM configs from localStorage:', JSON.stringify(pmConfigs));
+  // Priority 1: Custom LLM if enabled (even without baseUrl — user may have just apiKey+model)
+  const custom = pmConfigs.find(c => c.serviceId === 'custom' && c.enabled);
   if (custom) return custom;
+  // Priority 2: Any other enabled service with API key
   const withKey = pmConfigs.find(c => c.enabled && c.apiKey);
   if (withKey) return withKey;
   return null; // Will use Lovable AI default

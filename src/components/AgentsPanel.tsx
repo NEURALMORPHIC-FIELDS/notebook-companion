@@ -118,14 +118,14 @@ export default function AgentsPanel() {
                   </div>
 
                   {/* RIGHT — mini terminal info */}
-                  <div className="w-[260px] shrink-0 bg-black/30 rounded-md px-2.5 py-2 border border-border/30">
-                    <div className="flex items-center gap-1 mb-1">
-                      <Terminal size={8} className="text-nexus-green" />
-                      <span className="text-[8px] font-mono font-bold text-nexus-green/80 uppercase">Activity</span>
+                  <div className="w-[350px] shrink-0 bg-black/40 rounded-lg px-3 py-2.5 border border-border/40">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Terminal size={10} className="text-nexus-green" />
+                      <span className="text-[9px] font-mono font-bold text-nexus-green/90 uppercase tracking-wider">Activity</span>
                     </div>
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       {logs.map((line, j) => (
-                        <p key={j} className={`text-[9px] font-mono leading-tight truncate ${line.startsWith('▸') ? 'text-muted-foreground' : 'text-muted-foreground/50'
+                        <p key={j} className={`text-[10px] font-mono leading-snug ${line.startsWith('▸') ? 'text-muted-foreground' : 'text-muted-foreground/50'
                           }`}>{line}</p>
                       ))}
                     </div>

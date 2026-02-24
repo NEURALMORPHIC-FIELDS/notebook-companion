@@ -139,4 +139,6 @@ export function loadAgentConfigs(): Record<string, AgentApiConfig[]> {
 
 export function saveAgentConfigs(configs: Record<string, AgentApiConfig[]>) {
   localStorage.setItem('nexus-agent-configs', JSON.stringify(configs));
+  // Dispatch custom event so same-window listeners can react
+  window.dispatchEvent(new CustomEvent('nexus-agent-configs-changed'));
 }

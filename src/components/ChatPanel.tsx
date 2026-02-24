@@ -58,7 +58,17 @@ export default function ChatPanel() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const activeConfig = getActivePmConfig();
+  const [activeConfig, setActiveConfig] = useState<AgentApiConfig | null>(getActivePmConfig);
+
+  useEffect(() => {
+    const refresh = () => setActiveConfig(getActivePmConfig());
+    window.addEventListener('nexus-agent-configs-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('nexus-agent-configs-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
   const llmLabel = getActiveLlmLabel(activeConfig);
 
   useEffect(() => {

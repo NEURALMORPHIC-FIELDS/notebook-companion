@@ -6,7 +6,6 @@ import {
   Shield, Bug, BookOpen, Layers, PlayCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import { loadAgentConfigs, type AgentApiConfig } from "@/data/agent-services";
 
 // ─── Types ───────────────────────────────────────────
 interface ReviewResult {
@@ -58,41 +57,44 @@ const REVIEW_PIPELINE = [
 const STORAGE_KEY = 'nexus-notebook-entries';
 const EVENT_NAME = 'nexus-notebook-submit';
 
-// ─── LLM Config ──────────────────────────────────────
-function getCustomLlmConfig(): AgentApiConfig | null {
-  const allConfigs = loadAgentConfigs();
-  const pmConfigs = allConfigs['pm'] || [];
-  const custom = pmConfigs.find(c => c.serviceId === 'custom' && c.enabled);
-  if (custom) return custom;
-  const withKey = pmConfigs.find(c => c.enabled && c.apiKey);
-  if (withKey) return withKey;
-  return null;
-}
+// ─── LLM — uses agent-llm edge function ─────────────
+const AGENT_LLM_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-llm`;
 
-async function callAgent(config: AgentApiConfig, systemPrompt: string, code: string): Promise<string> {
-  const endpoint = config.chatApi || `${config.baseUrl}/chat/completions`;
-  const resp = await fetch(endpoint, {
+async function callReviewAgent(agentRole: string, systemPrompt: string, code: string): Promise<string> {
+  const resp = await fetch(AGENT_LLM_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({
-      model: config.model || 'default',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Review this code:\n\n\`\`\`\n${code}\n\`\`\`` },
-      ],
-      stream: false,
-      max_tokens: 1024,
-      temperature: 0.3,
+      agentRole,
+      messages: [{ role: 'user', content: `${systemPrompt}\n\nReview this code:\n\n\`\`\`\n${code}\n\`\`\`` }],
+      phase: '7',
     }),
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const data = await resp.json();
-  let content = data.choices?.[0]?.message?.content || 'No response';
-  content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  return content;
+  if (!resp.body) throw new Error('No body');
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '', result = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buf.indexOf('\n')) !== -1) {
+      let line = buf.slice(0, idx);
+      buf = buf.slice(idx + 1);
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (!line.startsWith('data: ')) continue;
+      const json = line.slice(6).trim();
+      if (json === '[DONE]') break;
+      try { const p = JSON.parse(json); const c = p.choices?.[0]?.delta?.content; if (c) result += c; }
+      catch { buf = line + '\n' + buf; break; }
+    }
+  }
+  return result || 'No response';
 }
 
 // ─── Persistence ─────────────────────────────────────
@@ -147,12 +149,6 @@ export default function NotebookPanel() {
 
   // Run all review agents on a code entry
   const runPipeline = useCallback(async (entryId: string) => {
-    const config = getCustomLlmConfig();
-    if (!config || !config.baseUrl) {
-      toast.error('No Custom LLM configured. Go to Agents → PM → Enable Custom LLM API.');
-      return;
-    }
-
     setEntries(prev => prev.map(e =>
       e.id === entryId ? { ...e, overallStatus: 'running' as const } : e
     ));
@@ -171,7 +167,7 @@ export default function NotebookPanel() {
       try {
         const entry = entries.find(e => e.id === entryId) || loadEntries().find(e => e.id === entryId);
         if (!entry) break;
-        const output = await callAgent(config, reviewer.prompt, entry.code);
+        const output = await callReviewAgent(reviewer.id, reviewer.prompt, entry.code);
 
         setEntries(prev => prev.map(e => {
           if (e.id !== entryId) return e;
@@ -218,8 +214,7 @@ export default function NotebookPanel() {
     });
   };
 
-  const config = getCustomLlmConfig();
-  const llmLabel = config?.model || 'Not configured';
+  const llmLabel = 'Lovable AI (agent-llm)';
 
   return (
     <div className="flex-1 overflow-auto p-6 space-y-4">

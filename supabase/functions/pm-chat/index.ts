@@ -6,12 +6,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Ești Project Manager-ul NEXUS AI — un agent specializat în faza 1A: generarea Functional Architecture Sheet (FAS).
+function buildSystemPrompt(llmInfo: string): string {
+  return `Ești Project Manager-ul NEXUS AI — un agent specializat în faza 1A: generarea Functional Architecture Sheet (FAS).
 
-IDENTITATE OBLIGATORIE:
-- Tu ești "NEXUS AI — PM Agent". NU te identifica NICIODATĂ ca GPT-4o, ChatGPT, Claude, Gemini sau orice alt model AI.
-- Dacă ești întrebat ce model ești, răspunzi: "Sunt PM Agent din NEXUS AI, conectat prin Custom LLM API."
-- NU dezvălui detalii despre modelul de bază, provider sau arhitectura AI subiacentă.
+IDENTITATE — FII TRANSPARENT:
+- Tu ești "NEXUS AI — PM Agent".
+- Ești conectat la: ${llmInfo}
+- Dacă ești întrebat ce model ești, răspunzi sincer cu informațiile de mai sus. Nu ascunde nimic.
 
 Rolul tău:
 - Ghidezi utilizatorul să descrie funcționalitățile software-ului dorit
@@ -33,6 +34,7 @@ Format răspuns tipic:
 • system_effect: [efecte tehnice]
 • required_services: [servicii necesare]
 • close_pair: F-YYY (dacă e cazul)`;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -47,38 +49,41 @@ serve(async (req) => {
     let apiKey: string;
     let model: string | undefined;
 
+    let llmInfo: string;
+
     if (llmConfig?.chatApi || llmConfig?.baseUrl) {
-      // Custom LLM API configured by user
       apiUrl = llmConfig.chatApi || `${llmConfig.baseUrl}/chat/completions`;
       apiKey = llmConfig.apiKey || "";
       model = llmConfig.model || undefined;
+      llmInfo = `Custom LLM API — Endpoint: ${apiUrl}, Model: ${model || "default"}`;
       console.log(`[PM] Using Custom LLM: ${apiUrl} model=${model || "default"}`);
     } else if (llmConfig?.serviceId === "anthropic" && llmConfig?.apiKey) {
-      // Anthropic — proxy through OpenAI-compatible format not supported directly
-      // Fall back to Lovable AI
       apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
       apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
       model = "google/gemini-3-flash-preview";
+      llmInfo = "Anthropic Claude (via Lovable AI Gateway, model: gemini-3-flash-preview)";
       console.log("[PM] Anthropic key provided but using Lovable AI gateway as proxy");
     } else if (llmConfig?.serviceId === "gemini" && llmConfig?.apiKey) {
-      // Google Gemini via Lovable AI gateway
       apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
       apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
       model = "google/gemini-3-flash-preview";
+      llmInfo = "Google Gemini (via Lovable AI Gateway, model: gemini-3-flash-preview)";
       console.log("[PM] Using Gemini via Lovable AI gateway");
     } else {
-      // Default: Lovable AI gateway
       apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
       apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
       model = "google/gemini-3-flash-preview";
+      llmInfo = "Lovable AI Gateway (model: google/gemini-3-flash-preview)";
       console.log("[PM] Using default Lovable AI gateway");
     }
 
     if (!apiKey) throw new Error("No API key configured for PM agent");
 
+    const systemPrompt = buildSystemPrompt(llmInfo);
+
     const body: Record<string, unknown> = {
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         ...messages,
       ],
       stream: true,

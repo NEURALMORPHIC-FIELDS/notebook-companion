@@ -35,28 +35,64 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const { messages, llmConfig } = await req.json();
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            ...messages,
-          ],
-          stream: true,
-        }),
-      }
-    );
+    // Determine which LLM endpoint to use
+    let apiUrl: string;
+    let apiKey: string;
+    let model: string | undefined;
+
+    if (llmConfig?.chatApi || llmConfig?.baseUrl) {
+      // Custom LLM API configured by user
+      apiUrl = llmConfig.chatApi || `${llmConfig.baseUrl}/chat/completions`;
+      apiKey = llmConfig.apiKey || "";
+      model = llmConfig.model || undefined;
+      console.log(`[PM] Using Custom LLM: ${apiUrl} model=${model || "default"}`);
+    } else if (llmConfig?.serviceId === "anthropic" && llmConfig?.apiKey) {
+      // Anthropic — proxy through OpenAI-compatible format not supported directly
+      // Fall back to Lovable AI
+      apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
+      apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+      model = "google/gemini-3-flash-preview";
+      console.log("[PM] Anthropic key provided but using Lovable AI gateway as proxy");
+    } else if (llmConfig?.serviceId === "gemini" && llmConfig?.apiKey) {
+      // Google Gemini via Lovable AI gateway
+      apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
+      apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+      model = "google/gemini-3-flash-preview";
+      console.log("[PM] Using Gemini via Lovable AI gateway");
+    } else {
+      // Default: Lovable AI gateway
+      apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
+      apiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+      model = "google/gemini-3-flash-preview";
+      console.log("[PM] Using default Lovable AI gateway");
+    }
+
+    if (!apiKey) throw new Error("No API key configured for PM agent");
+
+    const body: Record<string, unknown> = {
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...messages,
+      ],
+      stream: true,
+    };
+    if (model) body.model = model;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    // Custom endpoints may use different auth or no auth
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -67,14 +103,14 @@ serve(async (req) => {
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Credite insuficiente. Adaugă credite în Settings → Workspace → Usage." }),
+          JSON.stringify({ error: "Credite insuficiente." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      console.error("LLM API error:", response.status, t);
       return new Response(
-        JSON.stringify({ error: "Eroare AI gateway" }),
+        JSON.stringify({ error: `LLM API error: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

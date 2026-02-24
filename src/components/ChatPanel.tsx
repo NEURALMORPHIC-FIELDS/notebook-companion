@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Send, Bot, User, FileText, Loader2 } from "lucide-react";
+import { Send, Bot, User, FileText, Loader2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { loadAgentConfigs, type AgentApiConfig } from "@/data/agent-services";
 
 interface Message {
   id: number;
@@ -27,11 +28,38 @@ function getNow() {
   return new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** Get the active LLM config for PM agent */
+function getActivePmConfig(): AgentApiConfig | null {
+  const allConfigs = loadAgentConfigs();
+  const pmConfigs = allConfigs['pm'] || [];
+  // Find the first enabled config with an API key or custom URL
+  const custom = pmConfigs.find(c => c.serviceId === 'custom' && c.enabled && (c.baseUrl || c.chatApi));
+  if (custom) return custom;
+  const withKey = pmConfigs.find(c => c.enabled && c.apiKey);
+  if (withKey) return withKey;
+  return null; // Will use Lovable AI default
+}
+
+function getActiveLlmLabel(config: AgentApiConfig | null): string {
+  if (!config) return 'Lovable AI (Gemini 3 Flash)';
+  if (config.serviceId === 'custom') {
+    return config.model ? `Custom: ${config.model}` : 'Custom LLM API';
+  }
+  const names: Record<string, string> = {
+    anthropic: 'Anthropic Claude',
+    gemini: 'Google Gemini',
+    grok: 'xAI Grok',
+  };
+  return names[config.serviceId] || config.serviceId;
+}
+
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeConfig = getActivePmConfig();
+  const llmLabel = getActiveLlmLabel(activeConfig);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -50,10 +78,20 @@ export default function ChatPanel() {
     setInput('');
     setIsLoading(true);
 
-    // Build history for AI (skip initial greeting)
     const aiMessages = updatedMessages
       .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.id !== 1))
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+    // Build llmConfig payload from active agent config
+    const llmConfig = activeConfig
+      ? {
+          serviceId: activeConfig.serviceId,
+          apiKey: activeConfig.apiKey || '',
+          baseUrl: activeConfig.baseUrl || '',
+          chatApi: activeConfig.chatApi || '',
+          model: activeConfig.model || '',
+        }
+      : null;
 
     let assistantSoFar = '';
 
@@ -64,7 +102,7 @@ export default function ChatPanel() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: aiMessages }),
+        body: JSON.stringify({ messages: aiMessages, llmConfig }),
       });
 
       if (!resp.ok) {
@@ -145,9 +183,15 @@ export default function ChatPanel() {
       {/* Header */}
       <div className="border-b border-nexus-border-subtle px-6 py-3 flex items-center gap-3">
         <FileText size={16} className="text-primary" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-sm font-semibold text-foreground">FAS Conversation — Phase 1A</h1>
-          <p className="text-[10px] text-muted-foreground font-mono">Agent: Project Manager • Mode: EXPERT • LLM: Gemini 3 Flash</p>
+          <p className="text-[10px] text-muted-foreground font-mono">
+            Agent: Project Manager • LLM: <span className="text-primary">{llmLabel}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground">
+          <Settings2 size={10} />
+          <span>Configurare din Agents panel</span>
         </div>
       </div>
 

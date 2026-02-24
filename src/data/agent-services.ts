@@ -23,6 +23,8 @@ export const AGENT_SERVICES: Record<string, AgentService[]> = {
     { id: 'notion', name: 'Notion API', description: 'Project docs, wikis, task management sync', placeholder: 'ntn_...', docsUrl: 'https://developers.notion.com' },
     { id: 'linear', name: 'Linear API', description: 'Issue tracking, sprint management', placeholder: 'lin_api_...', docsUrl: 'https://developers.linear.app' },
     { id: 'jira', name: 'Jira API', description: 'Enterprise project management', placeholder: 'jira_token_...', docsUrl: 'https://developer.atlassian.com/cloud/jira' },
+    { id: 'github', name: 'GitHub API', description: 'Project import/export, repository management', placeholder: 'ghp_...', docsUrl: 'https://docs.github.com/en/rest' },
+    { id: 'serper', name: 'Google Search (Serper)', description: 'Real-time web search for PM research', placeholder: 'serper_...', docsUrl: 'https://serper.dev/docs' },
   ],
   architect: [
     { id: 'anthropic', name: 'Anthropic Claude', description: 'ADR reasoning, system design, architecture decisions', placeholder: 'sk-ant-...', docsUrl: 'https://docs.anthropic.com' },

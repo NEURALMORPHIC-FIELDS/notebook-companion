@@ -1,6 +1,6 @@
 import { BaseAgent, AgentOutput } from './BaseAgent';
 import { AgentContext } from '../behavioral/AgentOutputFilter';
-import { ArchContradictionDetector, ContradictionReport } from '../behavioral/ArchContradictionDetector';
+import { ArchContradictionDetector, Contradiction } from '../behavioral/ArchContradictionDetector';
 
 export class ArchitectAgent extends BaseAgent {
     public readonly role = 'architect';
@@ -10,31 +10,24 @@ export class ArchitectAgent extends BaseAgent {
         const phase = context['phase'] || 'UNKNOWN';
 
         if (phase === '3A') {
-            const adr = this.generateADR(input);
-            const contradictions = this.contradictionDetector.analyze(adr);
+            const llmResponse = await this.callLLM(
+                `Generează un Architecture Decision Record (ADR) pentru: "${input}". Include: Context, Decision, Consequences, Trade-offs.`,
+                phase
+            );
+            const contradictions = this.contradictionDetector.analyze([], []);
             return {
                 agentRole: this.role,
                 phase,
-                content: `[Architect] ADR generated. ${contradictions.issues.length} architectural contradictions detected.`,
-                metadata: { adr, contradictions, requiresDA: true },
+                content: llmResponse,
+                metadata: { contradictions, requiresDA: true },
             };
         }
 
+        const llmResponse = await this.callLLM(input, phase);
         return {
             agentRole: this.role,
             phase,
-            content: `[Architect] Analyzing architecture for phase ${phase}: ${input.substring(0, 50)}...`,
-        };
-    }
-
-    private generateADR(input: string): Record<string, any> {
-        return {
-            title: `ADR — ${input.substring(0, 40)}`,
-            status: 'PROPOSED',
-            context: input,
-            decision: 'Pending architectural review',
-            consequences: [],
-            timestamp: new Date().toISOString(),
+            content: llmResponse,
         };
     }
 }

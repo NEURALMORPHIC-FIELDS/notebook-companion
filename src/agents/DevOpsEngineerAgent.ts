@@ -6,31 +6,12 @@ export class DevOpsEngineerAgent extends BaseAgent {
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
         const phase = context['phase'] || 'UNKNOWN';
-
-        if (phase === '11') {
-            return {
-                agentRole: this.role,
-                phase,
-                content: `[DevOps] CI/CD pipeline configured. Dockerfile generated. verify_project.py integrated as gate.`,
-                metadata: {
-                    pipeline: {
-                        ci: 'GitHub Actions',
-                        stages: ['lint', 'test', 'build', 'veritas-gate', 'deploy'],
-                        veritasIntegrated: true,
-                    },
-                    artifacts: [
-                        { type: 'Dockerfile', path: 'Dockerfile', status: 'GENERATED' },
-                        { type: 'CI_CONFIG', path: '.github/workflows/ci.yml', status: 'GENERATED' },
-                        { type: 'DOCKER_COMPOSE', path: 'docker-compose.yml', status: 'GENERATED' },
-                    ],
-                },
-            };
-        }
-
-        return {
-            agentRole: this.role,
-            phase,
-            content: `[DevOps] Infrastructure monitoring for phase ${phase}.`,
-        };
+        const llmResponse = await this.callLLM(
+            phase === '11'
+                ? `Configurează CI/CD pipeline pentru: "${input}". Include: Dockerfile, GitHub Actions, stages (lint, test, build, veritas-gate, deploy), monitoring.`
+                : input,
+            phase
+        );
+        return { agentRole: this.role, phase, content: llmResponse };
     }
 }

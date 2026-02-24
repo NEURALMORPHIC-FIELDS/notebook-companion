@@ -56,8 +56,8 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
     const usedPct = Math.min((totalSizeKB / maxSizeKB) * 100, 100);
 
     const handleCreate = () => {
-        if (!newName.trim()) { toast.error('Numele proiectului este obligatoriu.'); return; }
-        if (storageType === 'github' && !githubRepo.trim()) { toast.error('Specifică repository-ul GitHub.'); return; }
+        if (!newName.trim()) { toast.error('Project name is required.'); return; }
+        if (storageType === 'github' && !githubRepo.trim()) { toast.error('Please specify a GitHub repository.'); return; }
 
         const project: Project = {
             id: `proj-${Date.now()}`,
@@ -69,7 +69,7 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
             githubRepo: storageType === 'github' ? githubRepo.trim() : undefined,
             sizeKB: 0,
             status: 'active',
-            context: `Proiect: ${newName.trim()}\nDescriere: ${newDesc.trim()}\nStorage: ${storageType}${storageType === 'github' ? '\nRepo: ' + githubRepo.trim() : ''}`,
+            context: `Project: ${newName.trim()}\nDescription: ${newDesc.trim()}\nStorage: ${storageType}${storageType === 'github' ? '\nRepo: ' + githubRepo.trim() : ''}`,
         };
 
         const updated = [project, ...projects];
@@ -79,26 +79,26 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
         setNewName('');
         setNewDesc('');
         setGithubRepo('');
-        toast.success(`Proiect "${project.name}" creat!`);
+        toast.success(`Project "${project.name}" created!`);
     };
 
     const handleDelete = (id: string) => {
         const updated = projects.filter(p => p.id !== id);
         setProjects(updated);
         saveProjects(updated);
-        toast.success('Proiect șters.');
+        toast.success('Project deleted.');
     };
 
     const handleSaveGithubToken = () => {
         localStorage.setItem('nexus-github-token', githubToken);
-        toast.success('Token GitHub salvat!');
+        toast.success('GitHub token saved!');
     };
 
     const handleOpen = (project: Project) => {
         if (onOpenProject) {
             onOpenProject(project);
         } else {
-            toast.info(`Deschide tab-ul Project Developer pentru a lucra pe "${project.name}".`);
+            toast.info(`Open the Project Developer tab to work on "${project.name}".`);
         }
     };
 
@@ -108,14 +108,14 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold nexus-gradient-text">Projects</h1>
-                    <p className="text-sm text-muted-foreground mt-1">Gestionează proiectele tale. Salvare locală (max 10 GB) sau pe GitHub.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Manage your projects. Save locally (up to 10 GB) or on GitHub.</p>
                 </div>
                 <button
                     onClick={() => setShowCreate(!showCreate)}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
                 >
                     <Plus size={16} />
-                    Proiect Nou
+                    New Project
                 </button>
             </div>
 
@@ -125,13 +125,13 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                 <div className="nexus-card rounded-xl p-4 border border-border/30">
                     <div className="flex items-center gap-2 mb-3">
                         <HardDrive size={14} className="text-primary" />
-                        <span className="text-xs font-semibold text-foreground">Stocare Locală</span>
+                        <span className="text-xs font-semibold text-foreground">Local Storage</span>
                     </div>
                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-1">
                         <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${usedPct}%` }} />
                     </div>
                     <p className="text-[10px] font-mono text-muted-foreground">
-                        {(totalSizeKB / 1024).toFixed(1)} MB / 10 GB folosit
+                        {(totalSizeKB / 1024).toFixed(1)} MB / 10 GB used
                     </p>
                 </div>
 
@@ -142,7 +142,7 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                         <span className="text-xs font-semibold text-foreground">GitHub</span>
                         {githubToken && (
                             <span className="flex items-center gap-1 text-[9px] font-mono text-nexus-green">
-                                <Check size={8} /> Conectat
+                                <Check size={8} /> Connected
                             </span>
                         )}
                     </div>
@@ -171,17 +171,17 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                     animate={{ opacity: 1, y: 0 }}
                     className="nexus-card rounded-xl p-5 border border-primary/30 nexus-border-glow space-y-3"
                 >
-                    <h3 className="text-sm font-semibold text-foreground">Proiect Nou</h3>
+                    <h3 className="text-sm font-semibold text-foreground">New Project</h3>
                     <input
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Numele proiectului"
+                        placeholder="Project name"
                         className="w-full h-9 px-3 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                     />
                     <textarea
                         value={newDesc}
                         onChange={(e) => setNewDesc(e.target.value)}
-                        placeholder="Descriere scurtă a proiectului..."
+                        placeholder="Short project description..."
                         rows={2}
                         className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
                     />
@@ -225,13 +225,13 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                             onClick={handleCreate}
                             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
                         >
-                            Creează
+                            Create
                         </button>
                         <button
                             onClick={() => setShowCreate(false)}
                             className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:text-foreground"
                         >
-                            Anulează
+                            Cancel
                         </button>
                     </div>
                 </motion.div>
@@ -242,7 +242,7 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                 {projects.length === 0 && !showCreate && (
                     <div className="nexus-card rounded-xl p-8 text-center">
                         <FolderKanban size={32} className="mx-auto text-muted-foreground mb-3" />
-                        <p className="text-sm text-muted-foreground">Niciun proiect încă. Apasă "Proiect Nou" pentru a începe.</p>
+                        <p className="text-sm text-muted-foreground">No projects yet. Click "New Project" to get started.</p>
                     </div>
                 )}
 
@@ -266,14 +266,14 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                                     <span className="text-sm font-semibold text-foreground">{project.name}</span>
                                     <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${project.status === 'active' ? 'bg-nexus-green/15 text-nexus-green' : 'bg-muted text-muted-foreground'
                                         }`}>
-                                        {project.status === 'active' ? 'ACTIV' : 'ARHIVAT'}
+                                        {project.status === 'active' ? 'ACTIVE' : 'ARCHIVED'}
                                     </span>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-0.5 truncate">{project.description || 'Fără descriere'}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5 truncate">{project.description || 'No description'}</p>
                                 <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-muted-foreground">
                                     <span className="flex items-center gap-1">
                                         <Clock size={9} />
-                                        {new Date(project.updatedAt).toLocaleDateString('ro-RO')}
+                                        {new Date(project.updatedAt).toLocaleDateString('en-US')}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         {project.storage === 'github' ? <Github size={9} /> : <HardDrive size={9} />}
@@ -286,7 +286,7 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleOpen(project); }}
                                     className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                                    title="Deschide în Project Developer"
+                                    title="Open in Project Developer"
                                 >
                                     <Code2 size={14} />
                                 </button>
@@ -297,7 +297,7 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
                                         className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                                        title="Deschide pe GitHub"
+                                        title="Open on GitHub"
                                     >
                                         <ExternalLink size={14} />
                                     </a>
@@ -305,7 +305,7 @@ export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
                                     className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                                    title="Șterge"
+                                    title="Delete"
                                 >
                                     <Trash2 size={14} />
                                 </button>

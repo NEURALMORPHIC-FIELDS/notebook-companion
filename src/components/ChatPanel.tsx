@@ -19,13 +19,13 @@ const INITIAL_MESSAGES: Message[] = [
     id: 1,
     role: 'assistant',
     agent: 'PM',
-    content: 'Bun venit la NEXUS AI Project Developer! Sunt Project Manager-ul tău, conectat la engine-ul tău LLM configurat. Descrie-mi proiectul tău și vom genera împreună arhitectura completă.',
+    content: 'Welcome to NEXUS AI Project Developer! I am your Project Manager agent, connected to your configured LLM engine. Describe your project and we will generate the complete architecture together.',
     timestamp: '14:30',
   },
 ];
 
 function getNow() {
-  return new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+  return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 /** Get the active LLM config for PM agent */
@@ -55,8 +55,27 @@ function getActiveLlmLabel(config: AgentApiConfig | null): string {
   return names[config.serviceId] || config.serviceId;
 }
 
+const STORAGE_KEY = 'nexus-chat-messages';
+
+function loadSavedMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return INITIAL_MESSAGES;
+}
+
+function persistMessages(msgs: Message[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+  } catch { /* ignore if quota exceeded */ }
+}
+
 export default function ChatPanel() {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>(loadSavedMessages);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,9 +92,19 @@ export default function ChatPanel() {
   }, []);
   const llmLabel = getActiveLlmLabel(activeConfig);
 
+  // Auto-save messages to localStorage whenever they change
+  useEffect(() => {
+    persistMessages(messages);
+  }, [messages]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  const handleClearChat = () => {
+    setMessages(INITIAL_MESSAGES);
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -127,7 +156,7 @@ export default function ChatPanel() {
 
         const systemPrompt = {
           role: 'system',
-          content: `Ești Project Manager-ul AI al platformei NEXUS AI v6. Ești conectat prin "${activeConfig!.model || 'custom model'}" la endpoint-ul "${activeConfig!.baseUrl}". Ajuți utilizatorul să definească arhitectura, funcționalitățile și planul proiectului. Răspunzi clar și structurat. Când ești întrebat la ce LLM ești conectat, spui deschis: modelul "${activeConfig!.model || 'custom'}" prin Custom LLM API la URL-ul "${activeConfig!.baseUrl}".`,
+          content: `You are the AI Project Manager of the NEXUS AI v6 platform. You are connected via "${activeConfig!.model || 'custom model'}" at endpoint "${activeConfig!.baseUrl}". You help the user define the architecture, features, and project plan. You respond clearly and in a structured way. When asked which LLM you are connected to, you openly say: model "${activeConfig!.model || 'custom'}" via Custom LLM API at URL "${activeConfig!.baseUrl}".`,
         };
         fetchBody = JSON.stringify({
           model: activeConfig!.model || 'default',
@@ -224,7 +253,7 @@ export default function ChatPanel() {
       }
     } catch (e) {
       console.error('PM chat error:', e);
-      toast.error(e instanceof Error ? e.message : 'Eroare la comunicarea cu LLM');
+      toast.error(e instanceof Error ? e.message : 'Error communicating with LLM');
     } finally {
       setIsLoading(false);
     }
@@ -238,13 +267,22 @@ export default function ChatPanel() {
         <div className="flex-1">
           <h1 className="text-sm font-semibold text-foreground">Project Developer</h1>
           <p className="text-[10px] text-muted-foreground font-mono">
-            Agent: Project Manager • Conectat la: <span className="text-primary font-bold">{llmLabel}</span>
+            Agent: Project Manager • Connected to: <span className="text-primary font-bold">{llmLabel}</span>
             {activeConfig?.baseUrl && <span className="text-muted-foreground/60"> • {activeConfig.baseUrl}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-nexus-green/10 text-nexus-green text-[9px] font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-nexus-green animate-pulse" />
-          <span>{llmLabel}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-nexus-green/10 text-nexus-green text-[9px] font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-nexus-green animate-pulse" />
+            <span>{llmLabel}</span>
+          </div>
+          <button
+            onClick={handleClearChat}
+            className="px-2 py-1 rounded-md text-[9px] font-mono text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Clear conversation"
+          >
+            Clear
+          </button>
         </div>
       </div>
 
@@ -280,7 +318,7 @@ export default function ChatPanel() {
               <Loader2 size={14} className="animate-spin" />
             </div>
             <div className="bg-card border border-nexus-border-subtle rounded-lg p-3 text-xs text-muted-foreground">
-              PM Agent procesează...
+              PM Agent processing...
             </div>
           </div>
         )}
@@ -293,7 +331,7 @@ export default function ChatPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Descrie proiectul, cere modificări, sau întreabă ce LLM mă animează..."
+            placeholder="Describe your project, request changes, or ask which LLM powers me..."
             disabled={isLoading}
             className="flex-1 bg-muted border border-nexus-border-subtle rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
           />

@@ -74,7 +74,7 @@ export class AgentOrchestrator {
     private _contradictionDetector = new ArchContradictionDetector();
     private _cache = new NamespacedCache();
     private _reporter = new RanVsWorkedReporter();
-    private _dropMonitor = new SilentDropMonitor();
+    private _dropMonitor = new SilentDropMonitor('orchestrator');
 
     /**
      * SDLC Phase → Agent mapping.

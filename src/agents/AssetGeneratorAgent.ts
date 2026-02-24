@@ -6,29 +6,12 @@ export class AssetGeneratorAgent extends BaseAgent {
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
         const phase = context['phase'] || 'UNKNOWN';
-
-        if (phase === '6B') {
-            return {
-                agentRole: this.role,
-                phase,
-                content: `[AssetGen] Asset generation pipeline ready. Logo, icons, and illustrations queued.`,
-                metadata: {
-                    assets: [
-                        { type: 'logo', format: 'SVG', status: 'QUEUED' },
-                        { type: 'favicon', format: 'ICO+PNG', status: 'QUEUED' },
-                        { type: 'icons', format: 'SVG', count: 0, status: 'QUEUED' },
-                        { type: 'illustrations', format: 'PNG', count: 0, status: 'QUEUED' },
-                        { type: 'og-image', format: 'PNG', status: 'QUEUED' },
-                    ],
-                    pipeline: 'Gemini Imagen → Stability AI fallback → Cloudinary CDN',
-                },
-            };
-        }
-
-        return {
-            agentRole: this.role,
-            phase,
-            content: `[AssetGen] Asset pipeline idle for phase ${phase}.`,
-        };
+        const llmResponse = await this.callLLM(
+            phase === '6B'
+                ? `Planifică generarea de assets pentru: "${input}". Include: logo (SVG), favicon, icons, illustrations, og-image. Specifică format, dimensiuni, pipeline de generare.`
+                : input,
+            phase
+        );
+        return { agentRole: this.role, phase, content: llmResponse };
     }
 }

@@ -8,32 +8,19 @@ export class TechLeadAgent extends BaseAgent {
         const phase = context['phase'] || 'UNKNOWN';
 
         if (phase === '4') {
-            const techSpec = this.generateTechSpec(input);
+            const llmResponse = await this.callLLM(
+                `Generează Tech Spec pentru: "${input}". Include: tech stack, coding standards, thresholds calibrate, task breakdown, estimări complexitate.`,
+                phase
+            );
             return {
                 agentRole: this.role,
                 phase,
-                content: `[TechLead] Tech Spec generated with ${techSpec.thresholds.length} calibrated thresholds.`,
-                metadata: { techSpec, requiresDA: true },
+                content: llmResponse,
+                metadata: { requiresDA: true },
             };
         }
 
-        return {
-            agentRole: this.role,
-            phase,
-            content: `[TechLead] Standards review for phase ${phase}.`,
-        };
-    }
-
-    private generateTechSpec(input: string): Record<string, any> {
-        return {
-            title: `Tech Spec — ${input.substring(0, 40)}`,
-            standards: ['TypeScript strict mode', 'ESLint enforced', 'Atomic writes for persistence'],
-            thresholds: [
-                { metric: 'response_time_ms', max: 200, calibrated: true },
-                { metric: 'error_rate_pct', max: 0.1, calibrated: true },
-                { metric: 'coverage_pct', min: 80, calibrated: true },
-            ],
-            timestamp: new Date().toISOString(),
-        };
+        const llmResponse = await this.callLLM(input, phase);
+        return { agentRole: this.role, phase, content: llmResponse };
     }
 }

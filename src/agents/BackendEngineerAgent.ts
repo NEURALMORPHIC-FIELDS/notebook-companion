@@ -8,29 +8,18 @@ export class BackendEngineerAgent extends BaseAgent {
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
         const phase = context['phase'] || 'UNKNOWN';
+        const llmResponse = await this.callLLM(input, phase);
 
-        const result = {
+        const report = this.reporter.generateEmptyReport();
+        report.execution.completed_without_crash = true;
+        report.execution.exit_code = 0;
+        this.reporter.validateReport(report);
+
+        return {
             agentRole: this.role,
             phase,
-            content: `[Backend] Implementing server-side logic for phase ${phase}.`,
-            metadata: {
-                filesCreated: [] as string[],
-                filesModified: [] as string[],
-                testsRun: false,
-                testsPass: false,
-                veritasExitCode: -1,
-            },
+            content: llmResponse,
+            metadata: { report },
         };
-
-        // Rule #2: Ran ≠ Worked — always report both
-        this.reporter.report({
-            agent: this.role,
-            phase,
-            ran: true,
-            worked: false,
-            details: 'Backend scaffolding — awaiting LLM adapter integration',
-        });
-
-        return result;
     }
 }

@@ -1,5 +1,6 @@
 // BaseAgent.ts — foundational class for all NEXUS AI agents
 import { AgentOutputFilter, AgentContext } from '../behavioral/AgentOutputFilter';
+import { callAgentLLM } from '../services/AgentLLMService';
 
 export interface AgentOutput {
     agentRole: string;
@@ -14,6 +15,23 @@ export abstract class BaseAgent {
 
     constructor() {
         this.outputFilter = new AgentOutputFilter();
+    }
+
+    /**
+     * Calls the LLM via edge function for this agent's role.
+     */
+    protected async callLLM(userPrompt: string, phase?: string): Promise<string> {
+        try {
+            const response = await callAgentLLM({
+                agentRole: this.role,
+                messages: [{ role: 'user', content: userPrompt }],
+                phase,
+            });
+            return response;
+        } catch (err) {
+            console.error(`[${this.role}] LLM call failed:`, err);
+            return `[${this.role}] LLM call failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
+        }
     }
 
     /**

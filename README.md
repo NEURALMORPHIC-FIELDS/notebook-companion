@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="webview-ui/public/nexus-logo.png" alt="NEXUS AI Logo" width="250" />
+  <img src="public/nexus-logo.png" alt="NEXUS AI Logo" width="500" />
 </div>
 
 # Welcome to your NEXUS AI project

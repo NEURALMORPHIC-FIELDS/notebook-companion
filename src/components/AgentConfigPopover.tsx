@@ -27,34 +27,57 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
 
   const connectedCount = Object.values(localConfigs).filter(c => c.enabled && c.apiKey).length;
 
-  const handleToggle = (service: AgentService, enabled: boolean) => {
-    const existing = localConfigs[service.id];
-    const updated = {
-      ...localConfigs,
-      [service.id]: {
-        serviceId: service.id,
-        apiKey: existing?.apiKey || "",
-        enabled,
-      },
-    };
+  const saveConfigs = (updated: Record<string, AgentApiConfig>) => {
     setLocalConfigs(updated);
     onSave(agent.id, Object.values(updated));
   };
 
+  const handleToggle = (service: AgentService, enabled: boolean) => {
+    const existing = localConfigs[service.id];
+    saveConfigs({
+      ...localConfigs,
+      [service.id]: {
+        serviceId: service.id,
+        apiKey: existing?.apiKey || "",
+        baseUrl: existing?.baseUrl || "",
+        chatApi: existing?.chatApi || "",
+        model: existing?.model || "",
+        enabled,
+      },
+    });
+  };
+
   const handleSaveKey = (serviceId: string) => {
-    const updated = {
+    const existing = localConfigs[serviceId];
+    saveConfigs({
       ...localConfigs,
       [serviceId]: {
-        ...localConfigs[serviceId],
         serviceId,
         apiKey: keyInput,
+        baseUrl: existing?.baseUrl || "",
+        chatApi: existing?.chatApi || "",
+        model: existing?.model || "",
         enabled: true,
       },
-    };
-    setLocalConfigs(updated);
-    onSave(agent.id, Object.values(updated));
+    });
     setEditingKey(null);
     setKeyInput("");
+  };
+
+  const handleCustomField = (serviceId: string, field: "baseUrl" | "chatApi" | "model", value: string) => {
+    const existing = localConfigs[serviceId];
+    saveConfigs({
+      ...localConfigs,
+      [serviceId]: {
+        serviceId,
+        apiKey: existing?.apiKey || "",
+        baseUrl: existing?.baseUrl || "",
+        chatApi: existing?.chatApi || "",
+        model: existing?.model || "",
+        enabled: existing?.enabled ?? true,
+        [field]: value,
+      },
+    });
   };
 
   return (
@@ -89,11 +112,12 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
         </div>
 
         {/* Services List */}
-        <div className="max-h-[320px] overflow-y-auto">
+        <div className="max-h-[420px] overflow-y-auto">
           {services.map((service) => {
             const cfg = localConfigs[service.id];
             const hasKey = !!(cfg?.apiKey);
             const isEnabled = !!(cfg?.enabled);
+            const isCustom = service.id === "custom";
 
             return (
               <div
@@ -104,7 +128,7 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-foreground">{service.name}</span>
-                      {hasKey && isEnabled && (
+                      {isEnabled && (hasKey || (isCustom && cfg?.baseUrl)) && (
                         <span className="w-1.5 h-1.5 rounded-full bg-nexus-green" />
                       )}
                     </div>
@@ -119,9 +143,11 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                   />
                 </div>
 
-                {/* API Key section */}
+                {/* When enabled — show key input or custom URL fields */}
                 {isEnabled && (
-                  <div className="mt-2">
+                  <div className="mt-2 flex flex-col gap-2">
+
+                    {/* API Key row — shown for all services (optional for custom) */}
                     {editingKey === service.id ? (
                       <div className="flex gap-1.5">
                         <input
@@ -152,14 +178,52 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                           <Key size={9} />
                           {hasKey ? "••••••••" + cfg.apiKey.slice(-4) : "Add API key"}
                         </button>
-                        <a
-                          href={service.docsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <ExternalLink size={10} />
-                        </a>
+                        {!isCustom && (
+                          <a
+                            href={service.docsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <ExternalLink size={10} />
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Custom endpoint fields — shown ONLY for the 'custom' service */}
+                    {isCustom && (
+                      <div className="pt-2 border-t border-border/40 flex flex-col gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Base URL</label>
+                          <input
+                            type="text"
+                            value={cfg?.baseUrl || ""}
+                            onChange={(e) => handleCustomField(service.id, "baseUrl", e.target.value)}
+                            placeholder="https://epa-theta-processing-faculty.trycloudflare.com/v1"
+                            className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Chat API Endpoint</label>
+                          <input
+                            type="text"
+                            value={cfg?.chatApi || ""}
+                            onChange={(e) => handleCustomField(service.id, "chatApi", e.target.value)}
+                            placeholder="https://.../v1/chat/completions"
+                            className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Model</label>
+                          <input
+                            type="text"
+                            value={cfg?.model || ""}
+                            onChange={(e) => handleCustomField(service.id, "model", e.target.value)}
+                            placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+                            className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

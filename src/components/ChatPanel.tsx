@@ -19,7 +19,7 @@ const INITIAL_MESSAGES: Message[] = [
     id: 1,
     role: 'assistant',
     agent: 'PM',
-    content: 'Bun venit la NEXUS AI! Sunt Project Manager-ul tău. Hai să începem cu Functional Architecture Sheet (FAS). Ce vrei să facă software-ul tău?',
+    content: 'Bun venit la NEXUS AI Project Developer! Sunt Project Manager-ul tău, conectat la engine-ul tău LLM configurat. Descrie-mi proiectul tău și vom genera împreună arhitectura completă.',
     timestamp: '14:30',
   },
 ];
@@ -97,12 +97,12 @@ export default function ChatPanel() {
     // Build llmConfig payload from active agent config
     const llmConfig = activeConfig
       ? {
-          serviceId: activeConfig.serviceId,
-          apiKey: activeConfig.apiKey || '',
-          baseUrl: activeConfig.baseUrl || '',
-          chatApi: activeConfig.chatApi || '',
-          model: activeConfig.model || '',
-        }
+        serviceId: activeConfig.serviceId,
+        apiKey: activeConfig.apiKey || '',
+        baseUrl: activeConfig.baseUrl || '',
+        chatApi: activeConfig.chatApi || '',
+        model: activeConfig.model || '',
+      }
       : null;
 
     let assistantSoFar = '';
@@ -196,14 +196,15 @@ export default function ChatPanel() {
       <div className="border-b border-nexus-border-subtle px-6 py-3 flex items-center gap-3">
         <FileText size={16} className="text-primary" />
         <div className="flex-1">
-          <h1 className="text-sm font-semibold text-foreground">FAS Conversation — Phase 1A</h1>
+          <h1 className="text-sm font-semibold text-foreground">Project Developer</h1>
           <p className="text-[10px] text-muted-foreground font-mono">
-            Agent: Project Manager • LLM: <span className="text-primary">{llmLabel}</span>
+            Agent: Project Manager • Conectat la: <span className="text-primary font-bold">{llmLabel}</span>
+            {activeConfig?.baseUrl && <span className="text-muted-foreground/60"> • {activeConfig.baseUrl}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground">
-          <Settings2 size={10} />
-          <span>Configurare din Agents panel</span>
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-nexus-green/10 text-nexus-green text-[9px] font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-nexus-green animate-pulse" />
+          <span>{llmLabel}</span>
         </div>
       </div>
 
@@ -217,16 +218,14 @@ export default function ChatPanel() {
             transition={{ delay: i * 0.05 }}
             className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              msg.role === 'assistant' ? 'bg-primary/20 text-primary' : 'bg-secondary text-secondary-foreground'
-            }`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${msg.role === 'assistant' ? 'bg-primary/20 text-primary' : 'bg-secondary text-secondary-foreground'
+              }`}>
               {msg.role === 'assistant' ? <Bot size={14} /> : <User size={14} />}
             </div>
-            <div className={`max-w-[75%] rounded-lg p-3 text-sm ${
-              msg.role === 'assistant'
+            <div className={`max-w-[75%] rounded-lg p-3 text-sm ${msg.role === 'assistant'
                 ? 'bg-card border border-nexus-border-subtle text-card-foreground'
                 : 'bg-primary/15 border border-primary/20 text-foreground'
-            }`}>
+              }`}>
               {msg.agent && (
                 <div className="text-[10px] font-mono text-primary mb-1">{msg.agent} Agent</div>
               )}
@@ -254,7 +253,7 @@ export default function ChatPanel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Descrie funcționalitatea dorită..."
+            placeholder="Descrie proiectul, cere modificări, sau întreabă ce LLM mă animează..."
             disabled={isLoading}
             className="flex-1 bg-muted border border-nexus-border-subtle rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
           />

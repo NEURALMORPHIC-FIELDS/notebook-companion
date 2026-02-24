@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, Shield, Bot, FileText, Terminal, ChevronLeft,
-  ChevronRight, Zap, Settings, Radio
+  LayoutDashboard, Shield, Bot, Code2, FolderKanban, Terminal, ChevronLeft,
+  ChevronRight, Radio
 } from "lucide-react";
 
-type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'notebook';
+type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook';
 
 interface SidebarProps {
   currentView: View;
@@ -16,7 +16,8 @@ const navItems: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { id: 'veritas', label: 'Veritas', icon: <Shield size={18} /> },
   { id: 'agents', label: 'Agents', icon: <Bot size={18} /> },
-  { id: 'chat', label: 'FAS Chat', icon: <FileText size={18} /> },
+  { id: 'chat', label: 'Project Developer', icon: <Code2 size={18} /> },
+  { id: 'projects', label: 'Projects', icon: <FolderKanban size={18} /> },
   { id: 'notebook', label: 'Notebook', icon: <Terminal size={18} /> },
 ];
 
@@ -58,8 +59,8 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               key={item.id}
               onClick={() => onViewChange(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${isActive
-                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/5'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-nexus-surface-hover border border-transparent'
+                ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/5'
+                : 'text-muted-foreground hover:text-foreground hover:bg-nexus-surface-hover border border-transparent'
                 }`}
             >
               <span className={isActive ? 'text-primary' : ''}>{item.icon}</span>

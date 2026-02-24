@@ -4,12 +4,18 @@ import Dashboard from "@/components/Dashboard";
 import VeritasDashboard from "@/components/VeritasDashboard";
 import AgentsPanel from "@/components/AgentsPanel";
 import ChatPanel from "@/components/ChatPanel";
+import ProjectsPanel from "@/components/ProjectsPanel";
 import NotebookPanel from "@/components/NotebookPanel";
 
-type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'notebook';
+type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
+
+  const handleOpenProject = (_project: any) => {
+    // Switch to Project Developer chat with project context loaded
+    setCurrentView('chat');
+  };
 
   const renderView = () => {
     switch (currentView) {
@@ -17,6 +23,7 @@ const Index = () => {
       case 'veritas': return <VeritasDashboard />;
       case 'agents': return <AgentsPanel />;
       case 'chat': return <ChatPanel />;
+      case 'projects': return <ProjectsPanel onOpenProject={handleOpenProject} />;
       case 'notebook': return <NotebookPanel />;
     }
   };

@@ -1,0 +1,319 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+    FolderKanban, Plus, Github, HardDrive, Clock, Code2,
+    Trash2, Edit3, ExternalLink, FolderOpen, Check
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface Project {
+    id: string;
+    name: string;
+    description: string;
+    createdAt: string;
+    updatedAt: string;
+    storage: 'local' | 'github';
+    githubRepo?: string;
+    sizeKB: number;
+    status: 'active' | 'archived';
+    context: string; // Project context to load into chat
+}
+
+function loadProjects(): Project[] {
+    try {
+        const raw = localStorage.getItem('nexus-projects');
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+function saveProjects(projects: Project[]) {
+    localStorage.setItem('nexus-projects', JSON.stringify(projects));
+}
+
+interface ProjectsPanelProps {
+    onOpenProject?: (project: Project) => void;
+}
+
+export default function ProjectsPanel({ onOpenProject }: ProjectsPanelProps) {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [showCreate, setShowCreate] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newDesc, setNewDesc] = useState('');
+    const [storageType, setStorageType] = useState<'local' | 'github'>('local');
+    const [githubRepo, setGithubRepo] = useState('');
+    const [githubToken, setGithubToken] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setProjects(loadProjects());
+        // Load GitHub token from localStorage
+        const token = localStorage.getItem('nexus-github-token');
+        if (token) setGithubToken(token);
+    }, []);
+
+    const totalSizeKB = projects.reduce((sum, p) => sum + p.sizeKB, 0);
+    const maxSizeKB = 10 * 1024 * 1024; // 10 GB in KB
+    const usedPct = Math.min((totalSizeKB / maxSizeKB) * 100, 100);
+
+    const handleCreate = () => {
+        if (!newName.trim()) { toast.error('Numele proiectului este obligatoriu.'); return; }
+        if (storageType === 'github' && !githubRepo.trim()) { toast.error('Specifică repository-ul GitHub.'); return; }
+
+        const project: Project = {
+            id: `proj-${Date.now()}`,
+            name: newName.trim(),
+            description: newDesc.trim(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            storage: storageType,
+            githubRepo: storageType === 'github' ? githubRepo.trim() : undefined,
+            sizeKB: 0,
+            status: 'active',
+            context: `Proiect: ${newName.trim()}\nDescriere: ${newDesc.trim()}\nStorage: ${storageType}${storageType === 'github' ? '\nRepo: ' + githubRepo.trim() : ''}`,
+        };
+
+        const updated = [project, ...projects];
+        setProjects(updated);
+        saveProjects(updated);
+        setShowCreate(false);
+        setNewName('');
+        setNewDesc('');
+        setGithubRepo('');
+        toast.success(`Proiect "${project.name}" creat!`);
+    };
+
+    const handleDelete = (id: string) => {
+        const updated = projects.filter(p => p.id !== id);
+        setProjects(updated);
+        saveProjects(updated);
+        toast.success('Proiect șters.');
+    };
+
+    const handleSaveGithubToken = () => {
+        localStorage.setItem('nexus-github-token', githubToken);
+        toast.success('Token GitHub salvat!');
+    };
+
+    const handleOpen = (project: Project) => {
+        if (onOpenProject) {
+            onOpenProject(project);
+        } else {
+            toast.info(`Deschide tab-ul Project Developer pentru a lucra pe "${project.name}".`);
+        }
+    };
+
+    return (
+        <div className="flex-1 overflow-auto p-6 space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold nexus-gradient-text">Projects</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Gestionează proiectele tale. Salvare locală (max 10 GB) sau pe GitHub.</p>
+                </div>
+                <button
+                    onClick={() => setShowCreate(!showCreate)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                    <Plus size={16} />
+                    Proiect Nou
+                </button>
+            </div>
+
+            {/* Storage + GitHub login */}
+            <div className="grid grid-cols-2 gap-4">
+                {/* Local storage meter */}
+                <div className="nexus-card rounded-xl p-4 border border-border/30">
+                    <div className="flex items-center gap-2 mb-3">
+                        <HardDrive size={14} className="text-primary" />
+                        <span className="text-xs font-semibold text-foreground">Stocare Locală</span>
+                    </div>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-1">
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${usedPct}%` }} />
+                    </div>
+                    <p className="text-[10px] font-mono text-muted-foreground">
+                        {(totalSizeKB / 1024).toFixed(1)} MB / 10 GB folosit
+                    </p>
+                </div>
+
+                {/* GitHub connection */}
+                <div className="nexus-card rounded-xl p-4 border border-border/30">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Github size={14} className="text-foreground" />
+                        <span className="text-xs font-semibold text-foreground">GitHub</span>
+                        {githubToken && (
+                            <span className="flex items-center gap-1 text-[9px] font-mono text-nexus-green">
+                                <Check size={8} /> Conectat
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex gap-1.5">
+                        <input
+                            type="password"
+                            value={githubToken}
+                            onChange={(e) => setGithubToken(e.target.value)}
+                            placeholder="ghp_... (Personal Access Token)"
+                            className="flex-1 h-7 px-2 text-[11px] font-mono bg-muted border border-border rounded text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                        />
+                        <button
+                            onClick={handleSaveGithubToken}
+                            className="h-7 px-2 text-[10px] font-mono font-bold rounded bg-primary text-primary-foreground hover:opacity-90"
+                        >
+                            SAVE
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Create new project form */}
+            {showCreate && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="nexus-card rounded-xl p-5 border border-primary/30 nexus-border-glow space-y-3"
+                >
+                    <h3 className="text-sm font-semibold text-foreground">Proiect Nou</h3>
+                    <input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder="Numele proiectului"
+                        className="w-full h-9 px-3 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                    <textarea
+                        value={newDesc}
+                        onChange={(e) => setNewDesc(e.target.value)}
+                        placeholder="Descriere scurtă a proiectului..."
+                        rows={2}
+                        className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary resize-none"
+                    />
+
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="storage"
+                                checked={storageType === 'local'}
+                                onChange={() => setStorageType('local')}
+                                className="accent-primary"
+                            />
+                            <HardDrive size={12} />
+                            <span className="text-xs text-foreground">Local (max 10 GB)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="storage"
+                                checked={storageType === 'github'}
+                                onChange={() => setStorageType('github')}
+                                className="accent-primary"
+                            />
+                            <Github size={12} />
+                            <span className="text-xs text-foreground">GitHub</span>
+                        </label>
+                    </div>
+
+                    {storageType === 'github' && (
+                        <input
+                            value={githubRepo}
+                            onChange={(e) => setGithubRepo(e.target.value)}
+                            placeholder="owner/repository"
+                            className="w-full h-9 px-3 text-sm font-mono bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                        />
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                        <button
+                            onClick={handleCreate}
+                            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
+                        >
+                            Creează
+                        </button>
+                        <button
+                            onClick={() => setShowCreate(false)}
+                            className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm hover:text-foreground"
+                        >
+                            Anulează
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Projects list */}
+            <div className="space-y-3">
+                {projects.length === 0 && !showCreate && (
+                    <div className="nexus-card rounded-xl p-8 text-center">
+                        <FolderKanban size={32} className="mx-auto text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground">Niciun proiect încă. Apasă "Proiect Nou" pentru a începe.</p>
+                    </div>
+                )}
+
+                {projects.map((project, i) => (
+                    <motion.div
+                        key={project.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="nexus-card rounded-xl p-4 border border-border/30 hover:bg-nexus-surface-hover transition-all cursor-pointer"
+                        onClick={() => handleOpen(project)}
+                    >
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                {project.storage === 'github'
+                                    ? <Github size={18} className="text-foreground" />
+                                    : <FolderOpen size={18} className="text-primary" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-foreground">{project.name}</span>
+                                    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${project.status === 'active' ? 'bg-nexus-green/15 text-nexus-green' : 'bg-muted text-muted-foreground'
+                                        }`}>
+                                        {project.status === 'active' ? 'ACTIV' : 'ARHIVAT'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5 truncate">{project.description || 'Fără descriere'}</p>
+                                <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                        <Clock size={9} />
+                                        {new Date(project.updatedAt).toLocaleDateString('ro-RO')}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        {project.storage === 'github' ? <Github size={9} /> : <HardDrive size={9} />}
+                                        {project.storage === 'github' ? project.githubRepo : 'Local'}
+                                    </span>
+                                    <span>{(project.sizeKB / 1024).toFixed(1)} MB</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleOpen(project); }}
+                                    className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                    title="Deschide în Project Developer"
+                                >
+                                    <Code2 size={14} />
+                                </button>
+                                {project.storage === 'github' && (
+                                    <a
+                                        href={`https://github.com/${project.githubRepo}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                        title="Deschide pe GitHub"
+                                    >
+                                        <ExternalLink size={14} />
+                                    </a>
+                                )}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(project.id); }}
+                                    className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                    title="Șterge"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+        </div>
+    );
+}

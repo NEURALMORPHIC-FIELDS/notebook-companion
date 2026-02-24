@@ -2,10 +2,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Shield, Bot, Code2, FolderKanban, Terminal, ChevronLeft,
-  ChevronRight, Radio
+  ChevronRight, Radio, UserCheck
 } from "lucide-react";
+import { useOrchestratorStore } from "@/hooks/useOrchestratorStore";
 
-type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook';
+type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook' | 'hitl';
 
 interface SidebarProps {
   currentView: View;
@@ -17,12 +18,14 @@ const navItems: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: 'veritas', label: 'Veritas', icon: <Shield size={18} /> },
   { id: 'agents', label: 'Agents', icon: <Bot size={18} /> },
   { id: 'chat', label: 'Project Developer', icon: <Code2 size={18} /> },
+  { id: 'hitl', label: 'Approvals', icon: <UserCheck size={18} /> },
   { id: 'projects', label: 'Projects', icon: <FolderKanban size={18} /> },
   { id: 'notebook', label: 'Notebook', icon: <Terminal size={18} /> },
 ];
 
 export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const { pendingApprovals } = useOrchestratorStore();
 
   return (
     <motion.aside
@@ -70,12 +73,17 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="truncate"
+                    className="truncate flex-1"
                   >
                     {item.label}
                   </motion.span>
                 )}
               </AnimatePresence>
+              {item.id === 'hitl' && pendingApprovals.length > 0 && !collapsed && (
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-nexus-amber/20 text-nexus-amber">
+                  {pendingApprovals.length}
+                </span>
+              )}
             </button>
           );
         })}

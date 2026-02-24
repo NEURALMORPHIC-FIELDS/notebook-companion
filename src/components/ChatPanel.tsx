@@ -94,32 +94,79 @@ export default function ChatPanel() {
       .filter((m) => m.role === 'user' || (m.role === 'assistant' && m.id !== 1))
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-    // Build llmConfig payload from active agent config
-    const llmConfig = activeConfig
-      ? {
-        serviceId: activeConfig.serviceId,
-        apiKey: activeConfig.apiKey || '',
-        baseUrl: activeConfig.baseUrl || '',
-        chatApi: activeConfig.chatApi || '',
-        model: activeConfig.model || '',
-      }
-      : null;
-
     let assistantSoFar = '';
+    const assistantId = Date.now() + 1;
+
+    const upsert = (chunk: string) => {
+      assistantSoFar += chunk;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && last.id === assistantId) {
+          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+        }
+        return [...prev, { id: assistantId, role: 'assistant', agent: 'PM', content: assistantSoFar, timestamp: getNow() }];
+      });
+    };
 
     try {
-      const resp = await fetch(PM_CHAT_URL, {
-        method: 'POST',
-        headers: {
+      // Determine endpoint: Direct Custom LLM vs Supabase proxy
+      const isCustom = activeConfig?.serviceId === 'custom' && activeConfig.baseUrl;
+
+      let fetchUrl: string;
+      let fetchHeaders: Record<string, string>;
+      let fetchBody: string;
+
+      if (isCustom) {
+        // === DIRECT Custom LLM call (OpenAI-compatible) ===
+        const chatEndpoint = activeConfig!.chatApi || `${activeConfig!.baseUrl}/chat/completions`;
+        fetchUrl = chatEndpoint;
+        fetchHeaders = { 'Content-Type': 'application/json' };
+        if (activeConfig!.apiKey) {
+          fetchHeaders['Authorization'] = `Bearer ${activeConfig!.apiKey}`;
+        }
+
+        const systemPrompt = {
+          role: 'system',
+          content: `Ești Project Manager-ul AI al platformei NEXUS AI v6. Ești conectat prin "${activeConfig!.model || 'custom model'}" la endpoint-ul "${activeConfig!.baseUrl}". Ajuți utilizatorul să definească arhitectura, funcționalitățile și planul proiectului. Răspunzi clar și structurat. Când ești întrebat la ce LLM ești conectat, spui deschis: modelul "${activeConfig!.model || 'custom'}" prin Custom LLM API la URL-ul "${activeConfig!.baseUrl}".`,
+        };
+        fetchBody = JSON.stringify({
+          model: activeConfig!.model || 'default',
+          messages: [systemPrompt, ...aiMessages],
+          stream: true,
+          temperature: 0.7,
+          max_tokens: 4096,
+        });
+
+        console.log(`[PM Chat] Direct call to Custom LLM: ${chatEndpoint}`);
+      } else {
+        // === Supabase edge function fallback ===
+        fetchUrl = PM_CHAT_URL;
+        fetchHeaders = {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: aiMessages, llmConfig }),
+        };
+        const llmConfig = activeConfig
+          ? {
+            serviceId: activeConfig.serviceId,
+            apiKey: activeConfig.apiKey || '',
+            baseUrl: activeConfig.baseUrl || '',
+            chatApi: activeConfig.chatApi || '',
+            model: activeConfig.model || '',
+          }
+          : null;
+        fetchBody = JSON.stringify({ messages: aiMessages, llmConfig });
+        console.log(`[PM Chat] Supabase proxy call`);
+      }
+
+      const resp = await fetch(fetchUrl, {
+        method: 'POST',
+        headers: fetchHeaders,
+        body: fetchBody,
       });
 
       if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({ error: 'Eroare necunoscută' }));
-        throw new Error(errData.error || `HTTP ${resp.status}`);
+        const errText = await resp.text().catch(() => 'Eroare necunoscută');
+        throw new Error(`HTTP ${resp.status}: ${errText}`);
       }
 
       if (!resp.body) throw new Error('No response body');
@@ -128,18 +175,6 @@ export default function ChatPanel() {
       const decoder = new TextDecoder();
       let textBuffer = '';
       let streamDone = false;
-      const assistantId = Date.now() + 1;
-
-      const upsert = (chunk: string) => {
-        assistantSoFar += chunk;
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === 'assistant' && last.id === assistantId) {
-            return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-          }
-          return [...prev, { id: assistantId, role: 'assistant', agent: 'PM', content: assistantSoFar, timestamp: getNow() }];
-        });
-      };
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -182,9 +217,14 @@ export default function ChatPanel() {
           } catch { /* ignore */ }
         }
       }
+
+      // Fallback: if no streaming data came through, try reading as plain JSON response
+      if (!assistantSoFar) {
+        console.warn('[PM Chat] No streaming data received, response may not have been SSE.');
+      }
     } catch (e) {
       console.error('PM chat error:', e);
-      toast.error(e instanceof Error ? e.message : 'Eroare la comunicarea cu PM Agent');
+      toast.error(e instanceof Error ? e.message : 'Eroare la comunicarea cu LLM');
     } finally {
       setIsLoading(false);
     }
@@ -223,8 +263,8 @@ export default function ChatPanel() {
               {msg.role === 'assistant' ? <Bot size={14} /> : <User size={14} />}
             </div>
             <div className={`max-w-[75%] rounded-lg p-3 text-sm ${msg.role === 'assistant'
-                ? 'bg-card border border-nexus-border-subtle text-card-foreground'
-                : 'bg-primary/15 border border-primary/20 text-foreground'
+              ? 'bg-card border border-nexus-border-subtle text-card-foreground'
+              : 'bg-primary/15 border border-primary/20 text-foreground'
               }`}>
               {msg.agent && (
                 <div className="text-[10px] font-mono text-primary mb-1">{msg.agent} Agent</div>

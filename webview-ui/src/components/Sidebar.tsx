@@ -31,8 +31,8 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-14 border-b border-nexus-border-subtle">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-nexus-blue flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/20">
-          <Zap size={16} className="text-primary-foreground" />
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 p-0.5 overflow-hidden">
+          <img src="/nexus-logo.png" alt="Nexus AI Logo" className="w-full h-full object-contain" />
         </div>
         <AnimatePresence>
           {!collapsed && (
@@ -57,11 +57,10 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => onViewChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
-                isActive
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${isActive
                   ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm shadow-primary/5'
                   : 'text-muted-foreground hover:text-foreground hover:bg-nexus-surface-hover border border-transparent'
-              }`}
+                }`}
             >
               <span className={isActive ? 'text-primary' : ''}>{item.icon}</span>
               <AnimatePresence>

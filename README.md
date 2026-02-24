@@ -1,4 +1,8 @@
-# Welcome to your Lovable project
+<div align="center">
+  <img src="webview-ui/public/nexus-logo.png" alt="NEXUS AI Logo" width="250" />
+</div>
+
+# Welcome to your NEXUS AI project
 
 ## Project info
 

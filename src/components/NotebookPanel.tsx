@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { collectSseStream } from "@/utils/sseParser";
+import { executeCode, type ExecResult } from "@/services/CodeExecutorService";
 import { motion } from "framer-motion";
 import {
   Play, Trash2, CheckCircle, XCircle, Terminal,
   FileCode, Bot, Loader2, Cpu, Wand2, RefreshCw,
-  Shield, Bug, BookOpen, Layers, PlayCircle
+  Shield, Bug, BookOpen, Layers, PlayCircle, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +26,9 @@ interface CodeEntry {
   timestamp: string;
   reviews: ReviewResult[];
   overallStatus: 'pending' | 'running' | 'passed' | 'issues' | 'error';
+  // Execution
+  execResult?: ExecResult;
+  execStatus?: 'idle' | 'running' | 'done' | 'error';
 }
 
 // ─── Review Agents Pipeline ──────────────────────────
@@ -179,6 +183,37 @@ export default function NotebookPanel() {
     }));
   }, [entries]);
 
+  // Execute code in server-side Deno sandbox
+  const runExecutor = useCallback(async (entryId: string) => {
+    setEntries(prev => prev.map(e =>
+      e.id === entryId ? { ...e, execStatus: 'running' as const } : e
+    ));
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    try {
+      const result = await executeCode(entry.code, {
+        language: entry.language === 'typescript' ? 'typescript' : 'javascript',
+        mode: 'run',
+      });
+      setEntries(prev => prev.map(e =>
+        e.id === entryId
+          ? { ...e, execResult: result, execStatus: result.exit_code === 0 ? 'done' : 'error' }
+          : e
+      ));
+      if (result.exit_code === 0) {
+        toast.success(`Executed in ${result.duration_ms}ms — exit 0`);
+      } else {
+        toast.error(`Execution failed — exit ${result.exit_code}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Execution error';
+      setEntries(prev => prev.map(e =>
+        e.id === entryId ? { ...e, execStatus: 'error' as const } : e
+      ));
+      toast.error(msg);
+    }
+  }, [entries]);
+
   const deleteEntry = (id: string) => {
     setEntries(prev => prev.filter(e => e.id !== id));
   };
@@ -285,12 +320,24 @@ export default function NotebookPanel() {
                 </span>
               )}
               {(entry.overallStatus === 'passed' || entry.overallStatus === 'issues') && (
-                <button
-                  onClick={() => runPipeline(entry.id)}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted-foreground hover:text-primary transition-colors"
-                >
-                  <RefreshCw size={10} /> Re-run
-                </button>
+                <>
+                  <button
+                    onClick={() => runPipeline(entry.id)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <RefreshCw size={10} /> Re-run
+                  </button>
+                  {/* Execute button — calls Deno sandbox */}
+                  <button
+                    onClick={() => runExecutor(entry.id)}
+                    disabled={entry.execStatus === 'running'}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-nexus-amber/10 text-nexus-amber border border-nexus-amber/20 hover:bg-nexus-amber/20 transition-colors disabled:opacity-50"
+                  >
+                    {entry.execStatus === 'running'
+                      ? <><Loader2 size={10} className="animate-spin" /> Executing...</>
+                      : <><Zap size={10} /> Execute</>}
+                  </button>
+                </>
               )}
               <button
                 onClick={() => deleteEntry(entry.id)}
@@ -356,6 +403,37 @@ export default function NotebookPanel() {
           {entry.overallStatus === 'issues' && (
             <div className="px-4 py-2 bg-nexus-red/5 flex items-center gap-2 text-[10px] font-mono text-nexus-red">
               <XCircle size={12} /> Review completed with issues — check findings above
+            </div>
+          )}
+
+          {/* Execution Terminal Output */}
+          {entry.execResult && (
+            <div className="border-t border-nexus-border-subtle">
+              <div className="flex items-center gap-2 px-4 py-2 bg-nexus-deep">
+                <Terminal size={11} className={entry.execResult.exit_code === 0 ? 'text-nexus-green' : 'text-nexus-red'} />
+                <span className="text-[10px] font-mono font-bold text-foreground">Execution Result</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${entry.execResult.exit_code === 0
+                    ? 'bg-nexus-green/10 text-nexus-green'
+                    : 'bg-nexus-red/10 text-nexus-red'
+                  }`}>
+                  exit {entry.execResult.exit_code}
+                </span>
+                <span className="text-[9px] font-mono text-muted-foreground ml-auto">
+                  {entry.execResult.duration_ms}ms
+                </span>
+              </div>
+              {entry.execResult.stdout && (
+                <div className="px-4 py-2 bg-nexus-deep/70">
+                  <div className="text-[9px] font-mono text-muted-foreground mb-1">stdout</div>
+                  <pre className="text-[11px] font-mono text-nexus-green whitespace-pre-wrap">{entry.execResult.stdout}</pre>
+                </div>
+              )}
+              {entry.execResult.stderr && (
+                <div className="px-4 py-2 bg-nexus-red/5">
+                  <div className="text-[9px] font-mono text-muted-foreground mb-1">stderr</div>
+                  <pre className="text-[11px] font-mono text-nexus-red whitespace-pre-wrap">{entry.execResult.stderr}</pre>
+                </div>
+              )}
             </div>
           )}
         </motion.div>

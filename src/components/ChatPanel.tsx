@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Send, Bot, User, FileText, Loader2, Settings2 } from "lucide-react";
+import { Send, Bot, User, FileText, Loader2, Settings2, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { loadAgentConfigs, type AgentApiConfig } from "@/data/agent-services";
 import { parseSseStream } from "@/utils/sseParser";
+import { orchestratorStore } from "@/stores/OrchestratorStore";
 
 interface Message {
   id: number;
@@ -282,8 +283,9 @@ export default function ChatPanel() {
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-nexus-border-subtle p-4">
+      {/* Input area */}
+      <div className="border-t border-nexus-border-subtle p-4 space-y-2">
+        {/* Input row */}
         <div className="flex gap-2">
           <input
             value={input}
@@ -301,6 +303,29 @@ export default function ChatPanel() {
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
+
+        {/* Launch NEXUS Pipeline — appears after 2+ exchanges, triggers Phase 1A */}
+        {messages.length > 2 && (
+          <button
+            onClick={async () => {
+              const spec = messages
+                .filter(m => m.content.length > 20)
+                .map(m => `${m.role === 'user' ? 'CLIENT' : 'PM'}: ${m.content}`)
+                .join('\n\n');
+              try {
+                toast.info('Launching NEXUS pipeline — Phase 1A starting...', { duration: 3000 });
+                await orchestratorStore.runPhaseWithLLM('1A', spec);
+                toast.success('Phase 1A queued for HITL review. Check Approvals panel.');
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Failed to launch pipeline');
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-nexus-green/10 text-nexus-green text-xs font-semibold border border-nexus-green/20 hover:bg-nexus-green/20 transition-colors"
+          >
+            <Rocket size={13} />
+            Launch NEXUS Pipeline — Start Phase 1A (FAS Generation)
+          </button>
+        )}
       </div>
     </div>
   );

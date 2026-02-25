@@ -1,12 +1,18 @@
 /**
  * OrchestratorStore — Reactive bridge between orchestrator classes and React UI.
  * Singleton that maintains live state of phases, agents, approvals, and notebook.
+ *
+ * PIPELINE FIX: PhaseSequencer is now wired here.
+ * When user approves Phase N → resolveApproval → phaseSequencer.onApproved(N)
+ * → PhaseSequencer auto-builds input for Phase N+1 → runPhaseWithLLM(N+1)
+ * This closes the missing horizontal pipeline gap.
  */
 
 import { PhaseTracer, PhaseMetrics } from '@/observability/PhaseTracer';
 import { HITLManager } from '@/hitl/HITLManager';
 import { ApprovalRequest } from '@/hitl/ApprovalRequest';
 import { callAgentLLM } from '@/services/AgentLLMService';
+import { PhaseSequencer } from '@/orchestrator/PhaseSequencer';
 
 export type PhaseStatus = 'completed' | 'in-progress' | 'pending' | 'blocked';
 export type AgentStatus = 'active' | 'idle' | 'working' | 'blocked';
@@ -98,6 +104,20 @@ class OrchestratorStoreImpl {
   private hitlManager = new HITLManager();
   private tracer = PhaseTracer.getInstance();
 
+  /**
+   * PhaseSequencer instance — auto-advances phases after HITL approval.
+   * Callbacks are bound to this store's methods so sequencer can
+   * start phases and update UI state.
+   */
+  private sequencer = new PhaseSequencer(
+    async (phase: string, input: string) => {
+      await this.runPhaseWithLLM(phase, input);
+    },
+    (phase: string, reason: string) => {
+      this.blockPhase(phase, reason);
+    }
+  );
+
   constructor() {
     const saved = this.loadState();
     this.state = saved || {
@@ -170,6 +190,10 @@ class OrchestratorStoreImpl {
     this.state.agents = this.state.agents.map(a =>
       a.currentPhase === phaseNumber ? { ...a, status: 'idle' as const, currentPhase: undefined } : a
     );
+    // Record full output in PhaseSequencer for use as input to next phase
+    if (output) {
+      this.sequencer.recordPhaseOutput(phaseNumber, output);
+    }
     this.notify();
   }
 
@@ -191,7 +215,7 @@ class OrchestratorStoreImpl {
   }
 
   // ─── HITL Management ─────────────────────────────
-  async requestApproval(phase: string, agentRole: string, summary: string, details: Record<string, any>, daBlocked = false) {
+  async requestApproval(phase: string, agentRole: string, summary: string, details: Record<string, unknown>, daBlocked = false) {
     const request = await this.hitlManager.requestApproval(phase, agentRole, summary, details, daBlocked);
     this.state.pendingApprovals = this.hitlManager.getPending();
     this.state.approvalHistory = this.hitlManager.getHistory();
@@ -199,11 +223,31 @@ class OrchestratorStoreImpl {
     return request;
   }
 
+  /**
+   * Resolve a pending HITL approval.
+   *
+   * PIPELINE CONNECTION:
+   * When status = 'APPROVED', PhaseSequencer.onApproved() is called.
+   * It builds the context-aware input for the next phase and auto-starts it.
+   * This replaces the previous dead-end where approval only updated the UI.
+   */
   resolveApproval(requestId: string, status: 'APPROVED' | 'REJECTED', comments?: string) {
+    // Find the request before resolving (we need phase + summary for sequencer)
+    const pending = this.state.pendingApprovals.find(r => r.id === requestId);
+
     this.hitlManager.resolve(requestId, status, comments);
     this.state.pendingApprovals = this.hitlManager.getPending();
     this.state.approvalHistory = this.hitlManager.getHistory();
     this.notify();
+
+    // AUTO-ADVANCE: if approved, trigger next phase automatically
+    if (status === 'APPROVED' && pending) {
+      const phaseOutput = pending.summary ?? '';
+      // onApproved records output + starts next phase (async, non-blocking for UI)
+      this.sequencer.onApproved(pending.phase, phaseOutput).catch(err => {
+        console.error('[OrchestratorStore] PhaseSequencer error:', err);
+      });
+    }
   }
 
   // ─── Notebook ────────────────────────────────────
@@ -251,22 +295,35 @@ class OrchestratorStoreImpl {
         phase: phaseNumber,
       });
 
+      // Store FULL response in sequencer (not truncated) for downstream phases
+      this.sequencer.recordPhaseOutput(phaseNumber, response);
+
+      // Update phase status with preview (first 200 chars)
       this.completePhase(phaseNumber, response.substring(0, 200));
 
-      // If implementation phase, submit code to notebook
+      // Implementation phases: submit code to Notebook panel
       if (['6A', '6B'].includes(phaseNumber) && response.includes('```')) {
         this.submitToNotebook({
           sourceAgent: mapping.agentRole,
           phase: phaseNumber,
           code: response,
           language: 'typescript',
-          description: `Code from phase ${phaseNumber}`,
+          description: `Code from Phase ${phaseNumber}`,
         });
       }
 
+      // Request HITL approval (phase sequencer advances only after user approves)
+      await this.requestApproval(
+        phaseNumber,
+        mapping.agentRole,
+        response,
+        { phase: phaseNumber, agentRole: mapping.agentRole },
+      );
+
       return response;
     } catch (err) {
-      this.blockPhase(phaseNumber, err instanceof Error ? err.message : 'Error');
+      const reason = err instanceof Error ? err.message : 'Error';
+      this.blockPhase(phaseNumber, reason);
       this.setAgentStatus(mapping.agentId, 'blocked');
       return null;
     }
@@ -274,6 +331,7 @@ class OrchestratorStoreImpl {
 
   // ─── Reset ───────────────────────────────────────
   reset() {
+    this.sequencer.reset();
     this.state = {
       phases: [...INITIAL_PHASES],
       agents: [...INITIAL_AGENTS],

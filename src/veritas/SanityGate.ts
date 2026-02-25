@@ -1,57 +1,62 @@
-import * as fs from 'fs';
-import * as path from 'path';
+/**
+ * SanityGate.ts — Pre-HITL verification gate
+ * NEXUS AI v6 — Veritas Ground Truth System (§2.3 ARCHITECTURE.md)
+ *
+ * PRINCIPLE: Agents cannot declare a phase complete if Veritas exit_code ≠ 0.
+ * SanityGate reads the last Veritas report and blocks the HITL panel if
+ * critical modules are NOT_WIRED.
+ *
+ * Browser-safe: reads from localStorage (written by VeritasRunner).
+ * No fs, no path, no Node.js dependencies.
+ */
 
-export interface VeritasReport {
-  total: number;
-  wired: number;
-  not_wired: number;
-  critical_missing: string[];
-  exit_code: 0 | 1 | 2;
-}
+import { VeritasRunner, type VeritasReport } from './VeritasRunner';
 
 export interface GateResult {
   blocked: boolean;
   reason?: string;
   details?: VeritasReport;
-  wired?: string;
+  wired?: string;      // e.g. "14/17"
   not_wired?: number;
 }
 
 export class SanityGate {
-  private memoryDir = path.join(process.cwd(), '.nexus', 'memory');
-  private reportPath = path.join(this.memoryDir, 'veritas-report.json');
+  /**
+   * Check if the current Veritas state allows the HITL panel to open.
+   *
+   * @param phase The current SDLC phase (used only for error messaging)
+   * @returns GateResult — blocked=true prevents HITL approval panel from opening
+   *
+   * ARCHITECTURE.md §2.3:
+   *   exit_code = 0  → blocked: false  → HITL opens
+   *   exit_code ≠ 0  → blocked: true   → HITL stays closed, agent must remediate
+   */
+  public async check(phase: string): Promise<GateResult> {
+    const report = VeritasRunner.loadReport();
 
-  async check(phase: string): Promise<GateResult> {
-    // 1. Check if Veritas report exists (assumes VeritasRunner is called prior)
-    if (!fs.existsSync(this.reportPath)) {
-        return {
-            blocked: true,
-            reason: `Veritas report missing for Phase ${phase}. verify_project.py must run first.`
-        };
-    }
-
-    // 2. Read report from .nexus/memory/veritas-report.json
-    const reportData = fs.readFileSync(this.reportPath, 'utf8');
-    const report: VeritasReport = JSON.parse(reportData);
-
-    if (report.exit_code !== 0) {
-      // BLOCKED — HITL does not open
-      // exit_code 1 = critical modules NOT_WIRED (from verify_project.py)
+    if (!report) {
       return {
         blocked: true,
-        reason: `${report.critical_missing.length} CRITICAL modules NOT_WIRED`,
-        details: report,
-        // Agent CANNOT declare phase complete
-        // Agent CANNOT request user approval
-        // Agent MUST remediate before continuing
+        reason: `Veritas report missing for Phase ${phase}. Run Veritas first.`,
       };
     }
 
-    // Only if exit_code === 0 → HITL opens
-    return { 
-        blocked: false,
-        wired: report.wired + '/' + report.total,
-        not_wired: report.not_wired 
+    if (report.exit_code !== 0) {
+      // Sanity Gate BLOCKED — agent CANNOT declare phase complete
+      // Agent CANNOT request user approval
+      // Agent MUST remediate before continuing
+      return {
+        blocked: true,
+        reason: `${report.critical_missing.length} CRITICAL module(s) NOT_WIRED`,
+        details: report,
+      };
+    }
+
+    // Gate passes — HITL can open
+    return {
+      blocked: false,
+      wired: `${report.wired}/${report.total}`,
+      not_wired: report.not_wired,
     };
   }
 }

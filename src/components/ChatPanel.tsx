@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Send, Bot, User, FileText, Loader2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { loadAgentConfigs, type AgentApiConfig } from "@/data/agent-services";
+import { parseSseStream } from "@/utils/sseParser";
 
 interface Message {
   id: number;
@@ -194,62 +195,19 @@ export default function ChatPanel() {
       });
 
       if (!resp.ok) {
-        const errText = await resp.text().catch(() => 'Eroare necunoscută');
+        const errText = await resp.text().catch(() => 'Unknown error');
         throw new Error(`HTTP ${resp.status}: ${errText}`);
       }
 
-      if (!resp.body) throw new Error('No response body');
+      if (!resp.body) throw new Error('No response body received.');
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
-      let streamDone = false;
-
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') { streamDone = true; break; }
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsert(content);
-          } catch {
-            textBuffer = line + '\n' + textBuffer;
-            break;
-          }
-        }
+      // Stream response using shared SSE parser (src/utils/sseParser.ts)
+      for await (const chunk of parseSseStream(resp.body)) {
+        upsert(chunk);
       }
 
-      // Final flush
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split('\n')) {
-          if (!raw) continue;
-          if (raw.endsWith('\r')) raw = raw.slice(0, -1);
-          if (raw.startsWith(':') || raw.trim() === '') continue;
-          if (!raw.startsWith('data: ')) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsert(content);
-          } catch { /* ignore */ }
-        }
-      }
-
-      // Fallback: if no streaming data came through, try reading as plain JSON response
       if (!assistantSoFar) {
-        console.warn('[PM Chat] No streaming data received, response may not have been SSE.');
+        console.warn('[PM Chat] No streaming data received — response may not be SSE format.');
       }
     } catch (e) {
       console.error('PM chat error:', e);

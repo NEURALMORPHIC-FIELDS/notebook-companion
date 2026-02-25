@@ -1,9 +1,15 @@
 /**
- * AgentLLMService — calls the agent-llm edge function for any NEXUS agent.
- * Supports both streaming (SSE) and non-streaming responses.
+ * AgentLLMService.ts — Unified LLM gateway for all NEXUS AI agents
+ * NEXUS AI v6
+ *
+ * Routes agent requests to the `agent-llm` Supabase Edge Function.
+ * Supports both full-response collection and streaming delta callbacks.
+ *
+ * SSE parsing is delegated to src/utils/sseParser.ts (single source of truth).
  */
 
 import { loadAgentConfigs, type AgentApiConfig } from '@/data/agent-services';
+import { parseSseStream, collectSseStream } from '@/utils/sseParser';
 
 const AGENT_LLM_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-llm`;
 
@@ -18,55 +24,51 @@ export interface AgentLLMRequest {
   phase?: string;
 }
 
-/**
- * Get the active LLM config for a specific agent role.
- */
+// ── Config resolution ────────────────────────────────────────────────────────
+
+const ROLE_TO_CONFIG_KEY: Record<string, string> = {
+  'project-manager': 'pm',
+  'architect': 'architect',
+  'devils-advocate': 'da',
+  'tech-lead': 'techlead',
+  'backend-engineer': 'backend',
+  'frontend-engineer': 'frontend',
+  'qa-engineer': 'qa',
+  'security-auditor': 'security',
+  'code-reviewer': 'codereviewer',
+  'tech-writer': 'techwriter',
+  'devops-engineer': 'devops',
+  'brand-designer': 'brand',
+  'uiux-designer': 'uiux',
+  'asset-generator': 'assetgen',
+};
+
 function getAgentConfig(agentRole: string): AgentApiConfig | null {
   const allConfigs = loadAgentConfigs();
-  // Map agent roles to config keys
-  const roleToKey: Record<string, string> = {
-    'project-manager': 'pm',
-    'architect': 'architect',
-    'devils-advocate': 'da',
-    'tech-lead': 'techlead',
-    'backend-engineer': 'backend',
-    'frontend-engineer': 'frontend',
-    'qa-engineer': 'qa',
-    'security-auditor': 'security',
-    'code-reviewer': 'codereviewer',
-    'tech-writer': 'techwriter',
-    'devops-engineer': 'devops',
-    'brand-designer': 'brand',
-    'uiux-designer': 'uiux',
-    'asset-generator': 'assetgen',
-  };
-  
-  const key = roleToKey[agentRole] || agentRole;
-  const configs = allConfigs[key] || [];
-  
-  // Priority: custom enabled > any enabled with key > null (default)
-  const custom = configs.find((c: AgentApiConfig) => c.serviceId === 'custom' && c.enabled);
+  const key = ROLE_TO_CONFIG_KEY[agentRole] ?? agentRole;
+  const configs: AgentApiConfig[] = allConfigs[key] ?? [];
+
+  // Priority: custom enabled > any enabled with key > null (Lovable default)
+  const custom = configs.find(c => c.serviceId === 'custom' && c.enabled);
   if (custom) return custom;
-  const withKey = configs.find((c: AgentApiConfig) => c.enabled && c.apiKey);
-  if (withKey) return withKey;
-  return null;
+  const withKey = configs.find(c => c.enabled && c.apiKey);
+  return withKey ?? null;
 }
 
-/**
- * Call agent LLM with streaming, returning the full response text.
- */
-export async function callAgentLLM(request: AgentLLMRequest): Promise<string> {
-  const config = getAgentConfig(request.agentRole);
-  
-  const llmConfig = config ? {
+function buildLLMConfig(config: AgentApiConfig | null) {
+  if (!config) return null;
+  return {
     serviceId: config.serviceId,
-    apiKey: config.apiKey || '',
-    baseUrl: config.baseUrl || '',
-    chatApi: config.chatApi || '',
-    model: config.model || '',
-  } : null;
+    apiKey: config.apiKey ?? '',
+    baseUrl: config.baseUrl ?? '',
+    chatApi: config.chatApi ?? '',
+    model: config.model ?? '',
+  };
+}
 
-  const resp = await fetch(AGENT_LLM_URL, {
+function buildFetchOptions(request: AgentLLMRequest) {
+  const config = getAgentConfig(request.agentRole);
+  return {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -76,118 +78,48 @@ export async function callAgentLLM(request: AgentLLMRequest): Promise<string> {
       agentRole: request.agentRole,
       messages: request.messages,
       phase: request.phase,
-      llmConfig,
+      llmConfig: buildLLMConfig(config),
     }),
-  });
+  };
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Call agent LLM and collect the full response as a string.
+ * Uses SSE streaming internally for efficiency.
+ */
+export async function callAgentLLM(request: AgentLLMRequest): Promise<string> {
+  const resp = await fetch(AGENT_LLM_URL, buildFetchOptions(request));
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => 'Unknown error');
     throw new Error(`Agent LLM error (${resp.status}): ${errText}`);
   }
+  if (!resp.body) throw new Error('No response body received from agent-llm.');
 
-  if (!resp.body) throw new Error('No response body');
-
-  // Parse SSE stream and collect full response
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let textBuffer = '';
-  let fullResponse = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    textBuffer += decoder.decode(value, { stream: true });
-
-    let newlineIndex: number;
-    while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-      let line = textBuffer.slice(0, newlineIndex);
-      textBuffer = textBuffer.slice(newlineIndex + 1);
-      if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (line.startsWith(':') || line.trim() === '') continue;
-      if (!line.startsWith('data: ')) continue;
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === '[DONE]') break;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) fullResponse += content;
-      } catch {
-        textBuffer = line + '\n' + textBuffer;
-        break;
-      }
-    }
-  }
-
-  return fullResponse;
+  return collectSseStream(resp.body);
 }
 
 /**
- * Call agent LLM with streaming, invoking onDelta for each token.
+ * Stream agent LLM response, invoking onDelta for each text chunk.
+ * onDone is called when the stream completes.
  */
 export async function streamAgentLLM(
   request: AgentLLMRequest,
   onDelta: (chunk: string) => void,
   onDone: () => void,
 ): Promise<void> {
-  const config = getAgentConfig(request.agentRole);
-  
-  const llmConfig = config ? {
-    serviceId: config.serviceId,
-    apiKey: config.apiKey || '',
-    baseUrl: config.baseUrl || '',
-    chatApi: config.chatApi || '',
-    model: config.model || '',
-  } : null;
-
-  const resp = await fetch(AGENT_LLM_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify({
-      agentRole: request.agentRole,
-      messages: request.messages,
-      phase: request.phase,
-      llmConfig,
-    }),
-  });
+  const resp = await fetch(AGENT_LLM_URL, buildFetchOptions(request));
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => 'Unknown error');
     throw new Error(`Agent LLM error (${resp.status}): ${errText}`);
   }
+  if (!resp.body) throw new Error('No response body received from agent-llm.');
 
-  if (!resp.body) throw new Error('No response body');
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let textBuffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    textBuffer += decoder.decode(value, { stream: true });
-
-    let newlineIndex: number;
-    while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-      let line = textBuffer.slice(0, newlineIndex);
-      textBuffer = textBuffer.slice(newlineIndex + 1);
-      if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (line.startsWith(':') || line.trim() === '') continue;
-      if (!line.startsWith('data: ')) continue;
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === '[DONE]') { onDone(); return; }
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch {
-        textBuffer = line + '\n' + textBuffer;
-        break;
-      }
-    }
+  for await (const chunk of parseSseStream(resp.body)) {
+    onDelta(chunk);
   }
-
   onDone();
 }

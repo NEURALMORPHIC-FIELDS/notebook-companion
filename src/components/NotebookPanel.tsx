@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { collectSseStream } from "@/utils/sseParser";
 import { motion } from "framer-motion";
 import {
   Play, Trash2, CheckCircle, XCircle, Terminal,
@@ -74,28 +75,12 @@ async function callReviewAgent(agentRole: string, systemPrompt: string, code: st
     }),
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  if (!resp.body) throw new Error('No body');
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '', result = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx: number;
-    while ((idx = buf.indexOf('\n')) !== -1) {
-      let line = buf.slice(0, idx);
-      buf = buf.slice(idx + 1);
-      if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (!line.startsWith('data: ')) continue;
-      const json = line.slice(6).trim();
-      if (json === '[DONE]') break;
-      try { const p = JSON.parse(json); const c = p.choices?.[0]?.delta?.content; if (c) result += c; }
-      catch { buf = line + '\n' + buf; break; }
-    }
-  }
-  return result || 'No response';
+  if (!resp.body) throw new Error('No response body received.');
+  // SSE parsing via shared utility (src/utils/sseParser.ts)
+  const result = await collectSseStream(resp.body);
+  return result || 'No response received.';
 }
+
 
 // ─── Persistence ─────────────────────────────────────
 function loadEntries(): CodeEntry[] {
@@ -272,8 +257,8 @@ export default function NotebookPanel() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: idx * 0.03 }}
           className={`nexus-card rounded-lg overflow-hidden ${entry.overallStatus === 'passed' ? 'border-nexus-green/30'
-              : entry.overallStatus === 'issues' || entry.overallStatus === 'error' ? 'border-nexus-red/30'
-                : ''
+            : entry.overallStatus === 'issues' || entry.overallStatus === 'error' ? 'border-nexus-red/30'
+              : ''
             }`}
         >
           {/* Entry Header */}

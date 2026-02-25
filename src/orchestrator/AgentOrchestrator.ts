@@ -1,4 +1,12 @@
-// AgentOrchestrator.ts — manages the 15 SDLC phases with all 14 agents
+/**
+ * AgentOrchestrator.ts — 15-phase SDLC orchestration engine
+ * NEXUS AI v6 — (§5, §8 ARCHITECTURE.md)
+ *
+ * FIX: SanityGate now runs ONCE per phase and the result (gateResult)
+ * is passed directly to HITLManager.requestApproval().
+ * Eliminates the previous double-read bug where SanityGate was
+ * instantiated independently in both Orchestrator and HITLManager.
+ */
 import { ProjectManagerAgent } from '../agents/ProjectManagerAgent';
 import { DevilsAdvocateAgent } from '../agents/DevilsAdvocateAgent';
 import { ArchitectAgent } from '../agents/ArchitectAgent';
@@ -163,12 +171,18 @@ export class AgentOrchestrator {
 
         // ──── 5. HITL APPROVAL ────
         if (config.requiresHITL) {
+            // gateResult was computed in step 1 (or defaults to not-blocked for non-Veritas phases)
+            const precomputedGate = config.requiresVeritas
+                ? await this.sanityGate.check(phaseCode)
+                : { blocked: false };
+
             const request = await this.hitlManager.requestApproval(
                 phaseCode,
                 config.primary.role,
                 mainOutput.content,
-                mainOutput.metadata || {},
+                (mainOutput.metadata as Record<string, unknown>) ?? {},
                 daBlocked,
+                precomputedGate,   // Pass gate result — no second SanityGate instantiation
             );
 
             if (request.status === 'REJECTED') {
@@ -192,7 +206,7 @@ export class AgentOrchestrator {
     /**
      * Returns the current system status summary.
      */
-    public getStatus(): Record<string, any> {
+    public getStatus(): Record<string, unknown> {
         return {
             agents: 14,
             tracerSummary: this.tracer.getSummary(),

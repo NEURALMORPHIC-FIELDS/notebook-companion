@@ -2,11 +2,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Shield, Bot, Code2, FolderKanban, Terminal, ChevronLeft,
-  ChevronRight, Radio, UserCheck
+  ChevronRight, Radio, UserCheck, GitBranch, Rocket
 } from "lucide-react";
 import { useOrchestratorStore } from "@/hooks/useOrchestratorStore";
 
-type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook' | 'hitl';
+type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook' | 'hitl' | 'repo' | 'deploy';
 
 interface SidebarProps {
   currentView: View;
@@ -21,6 +21,8 @@ const navItems: { id: View; label: string; icon: React.ReactNode }[] = [
   { id: 'hitl', label: 'Approvals', icon: <UserCheck size={18} /> },
   { id: 'projects', label: 'Projects', icon: <FolderKanban size={18} /> },
   { id: 'notebook', label: 'Notebook', icon: <Terminal size={18} /> },
+  { id: 'repo', label: 'GitHub Repo', icon: <GitBranch size={18} /> },
+  { id: 'deploy', label: 'Deploy', icon: <Rocket size={18} /> },
 ];
 
 export default function Sidebar({ currentView, onViewChange }: SidebarProps) {

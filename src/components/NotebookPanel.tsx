@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { collectSseStream } from "@/utils/sseParser";
-import { executeCode, type ExecResult } from "@/services/CodeExecutorService";
+import { executeCode, runTests, type ExecResult } from "@/services/CodeExecutorService";
 import { motion } from "framer-motion";
 import {
   Play, Trash2, CheckCircle, XCircle, Terminal,
   FileCode, Bot, Loader2, Cpu, Wand2, RefreshCw,
-  Shield, Bug, BookOpen, Layers, PlayCircle, Zap
+  Shield, Bug, BookOpen, Layers, PlayCircle, Zap, FlaskConical
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +29,9 @@ interface CodeEntry {
   // Execution
   execResult?: ExecResult;
   execStatus?: 'idle' | 'running' | 'done' | 'error';
+  // Tests (Sprint D)
+  testResult?: ExecResult;
+  testStatus?: 'idle' | 'running' | 'done' | 'error';
 }
 
 // ─── Review Agents Pipeline ──────────────────────────
@@ -223,6 +226,40 @@ export default function NotebookPanel() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
+  // Run Tests for entry — calls Deno sandbox in test mode (Sprint D)
+  const runTestsForEntry = useCallback(async (entryId: string) => {
+    setEntries(prev => prev.map(e =>
+      e.id === entryId ? { ...e, testStatus: 'running' as const } : e
+    ));
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    try {
+      const result = await runTests(
+        entry.code,
+        entry.code,
+        entry.language === 'typescript' ? 'typescript' : 'javascript',
+      );
+      setEntries(prev => prev.map(e =>
+        e.id === entryId
+          ? { ...e, testResult: result, testStatus: result.exit_code === 0 ? 'done' : 'error' }
+          : e
+      ));
+      const passed = result.tests_passed ?? 0;
+      const failed = result.tests_failed ?? 0;
+      if (failed === 0) {
+        toast.success(`Tests: ${passed} passed, 0 failed`);
+      } else {
+        toast.error(`Tests: ${passed} passed, ${failed} FAILED`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Test error';
+      setEntries(prev => prev.map(e =>
+        e.id === entryId ? { ...e, testStatus: 'error' as const } : e
+      ));
+      toast.error(msg);
+    }
+  }, [entries]);
+
   // Demo: simulate an agent submitting code
   const simulateAgentSubmission = () => {
     (window as any).nexusNotebook.submit({
@@ -337,6 +374,16 @@ export default function NotebookPanel() {
                       ? <><Loader2 size={10} className="animate-spin" /> Executing...</>
                       : <><Zap size={10} /> Execute</>}
                   </button>
+                  {/* Run Tests button — Sprint D */}
+                  <button
+                    onClick={() => runTestsForEntry(entry.id)}
+                    disabled={entry.testStatus === 'running'}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-nexus-blue/10 text-nexus-blue border border-nexus-blue/20 hover:bg-nexus-blue/20 transition-colors disabled:opacity-50"
+                  >
+                    {entry.testStatus === 'running'
+                      ? <><Loader2 size={10} className="animate-spin" /> Testing...</>
+                      : <><FlaskConical size={10} /> Run Tests</>}
+                  </button>
                 </>
               )}
               <button
@@ -413,8 +460,8 @@ export default function NotebookPanel() {
                 <Terminal size={11} className={entry.execResult.exit_code === 0 ? 'text-nexus-green' : 'text-nexus-red'} />
                 <span className="text-[10px] font-mono font-bold text-foreground">Execution Result</span>
                 <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${entry.execResult.exit_code === 0
-                    ? 'bg-nexus-green/10 text-nexus-green'
-                    : 'bg-nexus-red/10 text-nexus-red'
+                  ? 'bg-nexus-green/10 text-nexus-green'
+                  : 'bg-nexus-red/10 text-nexus-red'
                   }`}>
                   exit {entry.execResult.exit_code}
                 </span>
@@ -432,6 +479,60 @@ export default function NotebookPanel() {
                 <div className="px-4 py-2 bg-nexus-red/5">
                   <div className="text-[9px] font-mono text-muted-foreground mb-1">stderr</div>
                   <pre className="text-[11px] font-mono text-nexus-red whitespace-pre-wrap">{entry.execResult.stderr}</pre>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Test Results Table — Sprint D */}
+          {entry.testResult && (
+            <div className="border-t border-nexus-border-subtle">
+              <div className="flex items-center gap-2 px-4 py-2 bg-nexus-deep">
+                <FlaskConical size={11} className={entry.testResult.tests_failed === 0 ? 'text-nexus-blue' : 'text-nexus-red'} />
+                <span className="text-[10px] font-mono font-bold text-foreground">Test Results</span>
+                {entry.testResult.tests_passed !== undefined && (
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ml-1 ${(entry.testResult.tests_failed ?? 0) === 0
+                      ? 'bg-nexus-green/10 text-nexus-green'
+                      : 'bg-nexus-red/10 text-nexus-red'
+                    }`}>
+                    {entry.testResult.tests_passed} pass / {entry.testResult.tests_failed} fail
+                  </span>
+                )}
+                <span className="text-[9px] font-mono text-muted-foreground ml-auto">
+                  {entry.testResult.duration_ms}ms
+                </span>
+              </div>
+              {entry.testResult.tests && entry.testResult.tests.length > 0 && (
+                <div className="px-4 pb-2 bg-nexus-deep/60">
+                  <table className="w-full text-[10px] font-mono">
+                    <thead>
+                      <tr className="text-muted-foreground border-b border-nexus-border-subtle/50">
+                        <th className="text-left py-1 pl-1">Test</th>
+                        <th className="text-left py-1">Result</th>
+                        <th className="text-right py-1 pr-1">ms</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entry.testResult.tests.map((t, ti) => (
+                        <tr key={ti} className="border-b border-nexus-border-subtle/30 last:border-0">
+                          <td className="py-1 pl-1 text-foreground truncate max-w-[240px]">{t.name}</td>
+                          <td className="py-1">
+                            {t.passed
+                              ? <span className="text-nexus-green">✓ PASS</span>
+                              : <span className="text-nexus-red" title={t.error}>✗ FAIL</span>
+                            }
+                          </td>
+                          <td className="py-1 pr-1 text-right text-muted-foreground">{t.duration_ms}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {entry.testResult.stderr && (
+                <div className="px-4 py-2 bg-nexus-red/5">
+                  <div className="text-[9px] font-mono text-muted-foreground mb-1">stderr</div>
+                  <pre className="text-[11px] font-mono text-nexus-red whitespace-pre-wrap">{entry.testResult.stderr}</pre>
                 </div>
               )}
             </div>

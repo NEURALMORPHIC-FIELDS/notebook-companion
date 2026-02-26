@@ -7,8 +7,10 @@ import ChatPanel from "@/components/ChatPanel";
 import ProjectsPanel from "@/components/ProjectsPanel";
 import NotebookPanel from "@/components/NotebookPanel";
 import HITLPanel from "@/components/HITLPanel";
+import RepoPanel from "@/components/RepoPanel";
+import DeployPanel from "@/components/DeployPanel";
 
-type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook' | 'hitl';
+type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook' | 'hitl' | 'repo' | 'deploy';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -26,6 +28,8 @@ const Index = () => {
       case 'hitl': return <HITLPanel />;
       case 'projects': return <ProjectsPanel onOpenProject={handleOpenProject} />;
       case 'notebook': return <NotebookPanel />;
+      case 'repo': return <RepoPanel />;
+      case 'deploy': return <DeployPanel />;
     }
   };
 

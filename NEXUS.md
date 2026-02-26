@@ -5,8 +5,8 @@
 
 **Project:** notebook-companion
 **Architecture Version:** v6
-**Implementation Status:** Sprint A complete (Code Executor). Sprints B–E pending.
-**Last Updated:** 2026-02-25
+**Implementation Status:** ✅ All Sprints A–E complete — full pipeline implemented.
+**Last Updated:** 2026-02-26
 
 ---
 
@@ -25,10 +25,10 @@
 | SSE streaming (all agents) | ✅ via sseParser | — |
 | Session persistence (localStorage) | ✅ Functional | — |
 | Veritas (browser-side SanityGate) | ✅ Reads report | — |
-| Veritas Runner (real AST analysis) | ⏳ Stub | Sprint C |
-| File Writer (GitHub API) | ⏳ Not implemented | Sprint B |
-| Test Runner (run QA tests) | ⏳ Not implemented | Sprint D |
-| Deploy Engine (Vercel/Railway) | ⏳ Not implemented | Sprint E |
+| **Veritas Live Run Button** | ✅ Calls veritas-runner edge fn | Sprint C |
+| **File Writer (GitHub API)** | ✅ `file-writer` edge fn + RepoPanel | Sprint B |
+| **Test Runner** | ✅ Run Tests button + result table in Notebook | Sprint D |
+| **Deploy Engine** | ✅ `deploy-trigger` edge fn + DeployPanel | Sprint E |
 
 ---
 
@@ -71,40 +71,44 @@
 
 ---
 
-## Code Executor — Sprint A
+## Sprints Implementation Summary
 
-Edge function: `supabase/functions/code-executor/index.ts`
-Service: `src/services/CodeExecutorService.ts`
+### Sprint A — Code Executor
+Edge fn: `supabase/functions/code-executor/index.ts` · Service: `src/services/CodeExecutorService.ts`
+- Modes: `run` (stdout/stderr/exit_code) · `test` (harness with pass/fail per test)
+- 10s timeout · 50KB code limit · 10KB output cap · Zero Deno permissions
+- UI: **Execute** + **Run Tests** buttons in Agent Notebook (after review pipeline)
 
-**Modes:**
-- `run` — executes TypeScript/JS, returns `stdout + stderr + exit_code + duration_ms`
-- `test` — wraps code in test harness, returns `tests[] { name, passed, error, duration_ms }`
+### Sprint B — GitHub File Writer
+Edge fn: `supabase/functions/file-writer/index.ts` · Service: `src/services/FileWriterService.ts`
+- GitHub REST API `PUT /repos/{owner}/{repo}/contents/{path}` — create or update
+- Auto-detects existing file SHA for updates · Base64-encodes content
+- UI: **GitHub Repo** panel — config form (owner/repo/branch/PAT) + commit history log
 
-**Security parameters:**
-- Timeout: 10,000ms hard kill
-- Code size limit: 50KB
-- Output cap: 10KB
-- Permissions: NONE (`--no-prompt`, no allow flags)
+### Sprint C — Veritas Live Run Button
+Component: `src/components/VeritasDashboard.tsx`
+- **▶ Run Veritas** button calls `veritas-runner` edge fn
+- Replaces static `MOCK_MODULES` with live JSON result
+- Updates `orchestratorStore.setVeritasExitCode()` + shows **LIVE DATA** badge
 
-**Integration:** Agent Notebook → "Execute" button (appears after review pipeline completes)
+### Sprint D — Test Runner
+Component: `src/components/NotebookPanel.tsx`
+- **🧪 Run Tests** button (after review pipeline) calls `runTests()` from CodeExecutorService
+- Test results table: test name · ✓ PASS / ✗ FAIL · duration ms
+- OrchestratorStore: Phase 8 advance blocked if `tests_failed > 0`
 
----
-
-## Pending Sprints
-
-| Sprint | Deliverable | Impact |
-|--------|------------|--------|
-| B — File Writer | Write Phase 6A code to GitHub repo | Generated code reaches real files |
-| C — Real Veritas | BFS AST import traversal | Sanity Gate becomes objectively accurate |
-| D — Test Runner | Execute QA-generated tests | Test verdict: pass/fail (not LLM opinion) |
-| E — Deploy Engine | Trigger Vercel/Railway deploy | Pipeline terminates with live URL |
+### Sprint E — Deploy Engine
+Edge fn: `supabase/functions/deploy-trigger/index.ts` · Service: `src/services/DeployService.ts`
+- POSTs to Netlify or Vercel deploy hook URL
+- UI: **Deploy** panel — provider selector, hook URL, 🚀 Deploy Now, Phase 11 gate badge
+- Auto-triggers when Phase 11 completes (if hook configured)
 
 ---
 
 ## Sources of Truth
 
-| Artifact | Key |
-|----------|-----|
+| Artifact | localStorage Key |
+|----------|------------------|
 | Project spec / FAS | `nexus-fas-draft` |
 | Veritas report | `nexus-veritas-report` |
 | Phase outputs (all) | `nexus-phase-outputs` |
@@ -112,6 +116,10 @@ Service: `src/services/CodeExecutorService.ts`
 | Known Incomplete items | `nexus-known-incomplete` |
 | Orchestrator state | `nexus-orchestrator-state` |
 | Notebook entries | `nexus-notebook-entries` |
+| GitHub repo config | `nexus-repo-config` |
+| Committed files log | `nexus-committed-files` |
+| Deploy config | `nexus-deploy-config` |
+| Deploy log | `nexus-deploy-log` |
 
 ---
 

@@ -29,21 +29,15 @@ The user is the client — they describe what they want in natural language. NEX
 | **HITL Panel** | ✅ Active | Known Incomplete → DA Review → Approve/Reject |
 | **Devil's Advocate** | ✅ Active | Pre-HITL contestation, CRITICAL/HIGH/MEDIUM severity parsing |
 | **Veritas Gate (Browser)** | ✅ Active | SanityGate reads localStorage report, blocks HITL if exit_code ≠ 0 |
-| **Code Executor (Deno)** | ✅ Active | `code-executor` edge function — runs TypeScript in isolated sandbox |
-| **Agent Notebook** | ✅ Active | 4-agent review pipeline (CodeReview → QA → Security → Architect) + Execute button |
+| **Veritas Live Run** | ✅ Active | ▶ Run Veritas button calls `veritas-runner` edge fn, replaces mock data live |
+| **Code Executor (Deno)** | ✅ Active | `code-executor` edge fn — runs TypeScript in isolated sandbox (run + test modes) |
+| **Agent Notebook** | ✅ Active | 4-agent review + Execute + Run Tests buttons; test result table per entry |
+| **GitHub File Writer** | ✅ Active | `file-writer` edge fn + RepoPanel — commit reviewed code directly to GitHub |
+| **Deploy Engine** | ✅ Active | `deploy-trigger` edge fn + DeployPanel — Netlify/Vercel one-click deploy |
 | **FAS Generator** | ✅ Active | Phase 1A: PM Agent chat with OPEN/CLOSE pair validation |
 | **10 Behavioral Rules** | ✅ Active | Zero Spam, Ran≠Worked, No Silent Drops, Known Incomplete, etc. |
 | **Session Persistence** | ✅ Active | localStorage + Supabase DB |
 | **SSE Streaming** | ✅ Active | Shared `sseParser.ts` across all components |
-
-### ⏳ In Progress (Sprints B–E)
-
-| Component | Sprint | Status |
-|-----------|--------|--------|
-| **File Writer** (GitHub API) | B | Pending |
-| **Real Veritas** (AST import traversal) | C | Pending |
-| **Test Runner** (run QA-generated tests) | D | Pending |
-| **Deploy Engine** (Vercel/Railway) | E | Pending |
 
 ---
 
@@ -74,13 +68,15 @@ The user is the client — they describe what they want in natural language. NEX
    └─ Backend + Frontend Engineers generate code
    └─ Code sent to Agent Notebook automatically
    └─ Notebook: 4-agent review (Code Review → QA → Security → Architect)
-   └─ Execute button: runs code in Deno sandbox → stdout/stderr/exit_code
+   └─ Execute: runs code in Deno sandbox → stdout/stderr/exit_code
+   └─ Run Tests: test harness executes in Deno → PASS/FAIL table per test
+   └─ Commit: RepoPanel writes file to GitHub via file-writer edge fn
    └─ HITL approval
 
 6. Phase 7 → 8 → 9 → 10 → 11 [AUTO-CHAINED]
-   └─ Phase 8 QA: test cases generated
+   └─ Phase 8 QA: test cases generated (gate: blocked if tests_failed > 0)
    └─ Phase 9 Security: OWASP audit
-   └─ Phase 11 DevOps: CI/CD config generated
+   └─ Phase 11 DevOps: CI/CD config + DeployPanel auto-triggers deploy hook
 ```
 
 ---
@@ -122,7 +118,12 @@ The user is the client — they describe what they want in natural language. NEX
 │                                                                │
 │  Agent Notebook (Phase 6A output)                             │
 │  ├─ LLM Review: CodeReview → QA → Security → Architect         │
-│  └─ Execute: code-executor edge fn → stdout/stderr/exit_code   │
+│  ├─ Execute: code-executor edge fn → stdout/stderr/exit_code   │
+│  ├─ Run Tests: Deno test harness → PASS/FAIL table             │
+│  └─ Commit: file-writer edge fn → GitHub repo                  │
+│                                                                │
+│  Deploy Panel (Phase 11 complete)                              │
+│  └─ deploy-trigger edge fn → Netlify / Vercel                  │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,10 +135,10 @@ The user is the client — they describe what they want in natural language. NEX
 |----------|---------|--------|
 | `agent-llm` | All agent LLM calls (streaming SSE) | ✅ Active |
 | `pm-chat` | PM Agent direct chat endpoint | ✅ Active |
-| `veritas-runner` | Module wiring analysis | 🔧 Stub (Sprint C) |
-| `code-executor` | TypeScript execution in Deno sandbox | ✅ Active |
-| `file-writer` | Write generated code to GitHub repo | ⏳ Sprint B |
-| `deploy-trigger` | Trigger Vercel/Railway deployment | ⏳ Sprint E |
+| `veritas-runner` | Module wiring analysis (live from Veritas panel) | ✅ Active |
+| `code-executor` | TypeScript/JS execution in Deno sandbox | ✅ Active |
+| `file-writer` | Write generated code to GitHub repo | ✅ Active |
+| `deploy-trigger` | Trigger Netlify/Vercel deployment | ✅ Active |
 
 ---
 
@@ -216,6 +217,8 @@ npx supabase functions deploy agent-llm
 npx supabase functions deploy pm-chat
 npx supabase functions deploy code-executor
 npx supabase functions deploy veritas-runner
+npx supabase functions deploy file-writer
+npx supabase functions deploy deploy-trigger
 ```
 
 ---

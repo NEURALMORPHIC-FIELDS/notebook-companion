@@ -12,6 +12,21 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string): string | undefined {
+          if (!id.includes("node_modules")) {
+            return undefined;
+          }
+          if (id.includes("/recharts/") || id.includes("/framer-motion/")) {
+            return "vendor-heavy";
+          }
+          return "vendor";
+        },
+      },
+    },
+  },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {

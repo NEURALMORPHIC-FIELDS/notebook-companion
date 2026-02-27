@@ -218,15 +218,21 @@ function normalizeAgentConfigs(
       changed = true;
     }
 
+    const hasEnabledProviderWithKey = configsForAgent.some((cfg) => {
+      if (cfg.serviceId === 'custom') return false;
+      return Boolean(cfg.enabled && cfg.apiKey?.trim());
+    });
+
     const customIndex = configsForAgent.findIndex((cfg) => cfg.serviceId === 'custom');
     const existingCustom = customIndex >= 0 ? configsForAgent[customIndex] : undefined;
+    const customEnabledDefault = existingCustom?.enabled ?? !hasEnabledProviderWithKey;
     const normalizedCustom: AgentApiConfig = {
       serviceId: 'custom',
       apiKey: existingCustom?.apiKey || '',
       baseUrl: normalizeCustomBaseUrl(existingCustom?.baseUrl),
       chatApi: normalizeCustomChatApi(existingCustom?.chatApi),
       model: normalizeCustomModel(existingCustom?.model),
-      enabled: existingCustom?.enabled ?? false,
+      enabled: customEnabledDefault,
     };
 
     if (customIndex === -1) {

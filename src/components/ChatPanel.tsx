@@ -41,6 +41,11 @@ function getActivePmConfig(): AgentApiConfig | null {
   // Priority 2: Any other enabled service with API key
   const withKey = pmConfigs.find(c => c.enabled && c.apiKey);
   if (withKey) return withKey;
+  // Priority 3: Custom fallback (defaults from agent config normalization)
+  const customFallback = pmConfigs.find(c =>
+    c.serviceId === 'custom' && Boolean(c.baseUrl || c.chatApi || c.model)
+  );
+  if (customFallback) return customFallback;
   return null; // Will use Lovable AI default
 }
 

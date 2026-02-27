@@ -7,6 +7,7 @@
  */
 
 const REPO_CONFIG_KEY = 'nexus-repo-config';
+const REPO_SESSION_TOKEN_KEY = 'nexus-repo-token-session';
 
 function toBase64Utf8(content: string): string {
     const bytes = new TextEncoder().encode(content);
@@ -16,6 +17,26 @@ function toBase64Utf8(content: string): string {
         binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
     }
     return btoa(binary);
+}
+
+function readSessionToken(): string {
+    try {
+        return sessionStorage.getItem(REPO_SESSION_TOKEN_KEY) ?? '';
+    } catch {
+        return '';
+    }
+}
+
+function writeSessionToken(token: string): void {
+    try {
+        if (token) {
+            sessionStorage.setItem(REPO_SESSION_TOKEN_KEY, token);
+        } else {
+            sessionStorage.removeItem(REPO_SESSION_TOKEN_KEY);
+        }
+    } catch (error) {
+        console.warn('[FileWriterService] Failed to update session token storage.', error);
+    }
 }
 
 export interface RepoConfig {
@@ -53,13 +74,38 @@ export interface CommittedFile {
 export function loadRepoConfig(): RepoConfig | null {
     try {
         const raw = localStorage.getItem(REPO_CONFIG_KEY);
-        return raw ? JSON.parse(raw) : null;
+        const parsed = raw ? JSON.parse(raw) as Partial<RepoConfig> : null;
+        if (!parsed) return null;
+
+        let token = readSessionToken();
+        const legacyToken = typeof parsed.token === 'string' ? parsed.token : '';
+        if (!token && legacyToken) {
+            token = legacyToken;
+            writeSessionToken(token);
+            localStorage.setItem(REPO_CONFIG_KEY, JSON.stringify({
+                owner: parsed.owner ?? '',
+                repo: parsed.repo ?? '',
+                branch: parsed.branch ?? 'main',
+            }));
+        }
+
+        return {
+            owner: parsed.owner ?? '',
+            repo: parsed.repo ?? '',
+            branch: parsed.branch ?? 'main',
+            token,
+        };
     } catch { return null; }
 }
 
 export function saveRepoConfig(config: RepoConfig): void {
     try {
-        localStorage.setItem(REPO_CONFIG_KEY, JSON.stringify(config));
+        writeSessionToken(config.token);
+        localStorage.setItem(REPO_CONFIG_KEY, JSON.stringify({
+            owner: config.owner,
+            repo: config.repo,
+            branch: config.branch,
+        }));
     } catch (error) {
         console.warn('[FileWriterService] Failed to persist repository config.', error);
     }

@@ -32,7 +32,14 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
     setLocalConfigs(map);
   }, [configs]);
 
-  const connectedCount = Object.values(localConfigs).filter(c => c.enabled && c.apiKey).length;
+  const connectedCount = Object.values(localConfigs).filter((cfg) => {
+    if (!cfg.enabled) return false;
+    if (cfg.apiKey) return true;
+    if (cfg.serviceId === 'custom') {
+      return Boolean(cfg.baseUrl || cfg.chatApi || cfg.model);
+    }
+    return false;
+  }).length;
 
   const saveConfigs = (updated: Record<string, AgentApiConfig>) => {
     setLocalConfigs(updated);

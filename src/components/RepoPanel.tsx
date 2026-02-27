@@ -64,6 +64,16 @@ function derivePath(entry: NotebookEntry): string {
     return `nexus/phase-${entry.phase}-${entry.sourceAgent.replace(/\s+/g, '-')}.${ext}`;
 }
 
+function toBase64Utf8(content: string): string {
+    const bytes = new TextEncoder().encode(content);
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+    return btoa(binary);
+}
+
 /** GitHub REST API helpers */
 async function ghFetch(path: string, token: string, method = 'GET', body?: object) {
     const resp = await fetch(`https://api.github.com${path}`, {
@@ -256,7 +266,7 @@ export default function RepoPanel() {
 
                 const body: Record<string, string> = {
                     message: `[NEXUS AI] Phase ${entry.phase}: ${entry.description || entry.sourceAgent}`,
-                    content: btoa(unescape(encodeURIComponent(entry.code))),
+                    content: toBase64Utf8(entry.code),
                     branch,
                 };
                 if (existingSha) body.sha = existingSha;

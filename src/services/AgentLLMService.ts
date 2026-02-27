@@ -48,11 +48,17 @@ function getAgentConfig(agentRole: string): AgentApiConfig | null {
   const key = ROLE_TO_CONFIG_KEY[agentRole] ?? agentRole;
   const configs: AgentApiConfig[] = allConfigs[key] ?? [];
 
-  // Priority: custom enabled > any enabled with key > null (Lovable default)
+  // Priority: custom enabled > any enabled with key > custom fallback > null (Lovable default)
   const custom = configs.find(c => c.serviceId === 'custom' && c.enabled);
   if (custom) return custom;
   const withKey = configs.find(c => c.enabled && c.apiKey);
-  return withKey ?? null;
+  if (withKey) return withKey;
+
+  const customFallback = configs.find((cfg) => {
+    if (cfg.serviceId !== 'custom') return false;
+    return Boolean(cfg.baseUrl || cfg.chatApi || cfg.model);
+  });
+  return customFallback ?? null;
 }
 
 function buildLLMConfig(config: AgentApiConfig | null) {

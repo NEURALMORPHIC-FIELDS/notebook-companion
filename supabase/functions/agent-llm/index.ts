@@ -144,7 +144,9 @@ serve(async (req) => {
     let model: string | undefined;
     let llmInfo: string;
 
-    if (llmConfig?.chatApi || llmConfig?.baseUrl) {
+    const usingCustomEndpoint = Boolean(llmConfig?.chatApi || llmConfig?.baseUrl);
+
+    if (usingCustomEndpoint) {
       apiUrl = llmConfig.chatApi || `${llmConfig.baseUrl}/chat/completions`;
       apiKey = llmConfig.apiKey || "";
       model = llmConfig.model || undefined;
@@ -156,7 +158,7 @@ serve(async (req) => {
       llmInfo = `Lovable AI Gateway (model: ${model})`;
     }
 
-    if (!apiKey) throw new Error("No API key configured");
+    if (!apiKey && !usingCustomEndpoint) throw new Error("No API key configured");
 
     // Build system prompt
     const basePrompt = AGENT_PROMPTS[agentRole] || `You are NEXUS AI — ${agentRole} Agent.`;

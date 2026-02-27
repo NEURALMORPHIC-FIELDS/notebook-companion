@@ -78,7 +78,9 @@ serve(async (req) => {
 
     let llmInfo: string;
 
-    if (llmConfig?.chatApi || llmConfig?.baseUrl) {
+    const usingCustomEndpoint = Boolean(llmConfig?.chatApi || llmConfig?.baseUrl);
+
+    if (usingCustomEndpoint) {
       apiUrl = llmConfig.chatApi || `${llmConfig.baseUrl}/chat/completions`;
       apiKey = llmConfig.apiKey || "";
       model = llmConfig.model || undefined;
@@ -104,7 +106,7 @@ serve(async (req) => {
       console.log("[PM] Using default Lovable AI gateway");
     }
 
-    if (!apiKey) throw new Error("No API key configured for PM agent");
+    if (!apiKey && !usingCustomEndpoint) throw new Error("No API key configured for PM agent");
 
     const systemPrompt = buildSystemPrompt(llmInfo);
 

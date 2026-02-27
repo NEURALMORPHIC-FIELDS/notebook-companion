@@ -11,7 +11,7 @@ export class ArchitectAgent extends BaseAgent {
 
         if (phase === '3A') {
             const llmResponse = await this.callLLM(
-                `Generează un Architecture Decision Record (ADR) pentru: "${input}". Include: Context, Decision, Consequences, Trade-offs.`,
+                `Generate an Architecture Decision Record (ADR) for: "${input}". Include: Context, Decision, Consequences, and Trade-offs.`,
                 phase
             );
             const contradictions = this.contradictionDetector.analyze([], []);

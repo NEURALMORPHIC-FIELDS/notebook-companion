@@ -15,7 +15,7 @@ type View = 'dashboard' | 'veritas' | 'agents' | 'chat' | 'projects' | 'notebook
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
 
-  const handleOpenProject = (_project: any) => {
+  const handleOpenProject = (_project: unknown) => {
     setCurrentView('chat');
   };
 

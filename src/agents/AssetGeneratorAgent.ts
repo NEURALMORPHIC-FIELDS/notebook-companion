@@ -8,7 +8,7 @@ export class AssetGeneratorAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '6B'
-                ? `Planifică generarea de assets pentru: "${input}". Include: logo (SVG), favicon, icons, illustrations, og-image. Specifică format, dimensiuni, pipeline de generare.`
+                ? `Plan asset generation for: "${input}". Include: logo (SVG), favicon, icons, illustrations, and OG image. Specify format, dimensions, and generation pipeline.`
                 : input,
             phase
         );

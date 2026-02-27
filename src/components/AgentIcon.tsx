@@ -3,8 +3,9 @@ import {
   FlaskConical, ShieldCheck, ScanEye, BookOpen,
   Rocket, Gem, PenTool, Image
 } from "lucide-react";
+import type { LucideProps } from "lucide-react";
 
-const ICON_MAP: Record<string, React.ComponentType<any>> = {
+const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   kanban: Kanban,
   blocks: Blocks,
   flame: Flame,

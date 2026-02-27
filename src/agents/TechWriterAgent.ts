@@ -8,7 +8,7 @@ export class TechWriterAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '10'
-                ? `Generează documentație pentru: "${input}". Include: README, API docs, changelog, ghid de utilizare.`
+                ? `Generate documentation for: "${input}". Include: README, API docs, changelog, and usage guide.`
                 : input,
             phase
         );

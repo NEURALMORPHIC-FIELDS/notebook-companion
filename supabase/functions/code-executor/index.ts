@@ -88,10 +88,39 @@ function expect(val) {
     toBeTruthy: () => { if (!val) throw new Error(\`Expected truthy, got \${val}\`); },
     toBeFalsy: () => { if (val) throw new Error(\`Expected falsy, got \${val}\`); },
     toContain: (sub) => { if (!String(val).includes(sub)) throw new Error(\`Expected to contain "\${sub}"\`); },
-    toThrow: () => { /* stub */ },
+    toThrow: (expected) => {
+      if (typeof val !== "function") throw new Error("toThrow() expects a function");
+      let thrown = false;
+      let thrownValue = null;
+      try {
+        val();
+      } catch (error) {
+        thrown = true;
+        thrownValue = error;
+      }
+      if (!thrown) throw new Error("Expected function to throw, but it did not throw");
+      if (expected !== undefined) {
+        const message = thrownValue instanceof Error ? thrownValue.message : String(thrownValue);
+        if (expected instanceof RegExp && !expected.test(message)) {
+          throw new Error(\`Expected thrown error to match \${expected}, got "\${message}"\`);
+        }
+        if (typeof expected === "string" && !message.includes(expected)) {
+          throw new Error(\`Expected thrown error to include "\${expected}", got "\${message}"\`);
+        }
+      }
+    },
     not: {
       toBe: (expected) => { if (val === expected) throw new Error(\`Expected not \${expected}\`); },
       toBeTruthy: () => { if (val) throw new Error(\`Expected falsy\`); },
+      toThrow: () => {
+        if (typeof val !== "function") throw new Error("not.toThrow() expects a function");
+        try {
+          val();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(\`Expected function not to throw, but it threw: "\${message}"\`);
+        }
+      },
     }
   };
 }

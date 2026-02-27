@@ -15,6 +15,7 @@ import { callAgentLLM } from '@/services/AgentLLMService';
 import { PhaseSequencer } from '@/orchestrator/PhaseSequencer';
 import { pmCreateRepo, pmCommitFile, phaseToFilePath, extractProjectName } from '@/services/GitHubService';
 import { loadRepoConfig } from '@/services/FileWriterService';
+import { saveGeneratedProgramFile } from '@/services/GeneratedProgramFilesService';
 import {
   globalArchitectureVigilance,
   type GlobalVigilanceState,
@@ -206,6 +207,8 @@ class OrchestratorStoreImpl {
         approvedAgentRoles: [],
       };
 
+    this.recoverBlockedAgentsOnStartup();
+
     // Wire HITL manager to emit events
     this.hitlManager.onRequest((req) => {
       this.state.pendingApprovals = this.hitlManager.getPending();
@@ -232,6 +235,31 @@ class OrchestratorStoreImpl {
     this.persist();
     this.listeners.forEach(fn => fn(this.state));
     window.dispatchEvent(new CustomEvent('nexus-orchestrator-update', { detail: this.state }));
+  }
+
+  private recoverBlockedAgentsOnStartup() {
+    const hasRunningPhase = this.state.phases.some((phase) => phase.status === 'in-progress');
+    const hasPendingApprovals = this.state.pendingApprovals.length > 0;
+    if (this.state.currentPhase || hasRunningPhase || hasPendingApprovals) {
+      return;
+    }
+
+    let changed = false;
+    this.state.agents = this.state.agents.map((agent) => {
+      if (agent.status !== 'blocked') {
+        return agent;
+      }
+      changed = true;
+      return {
+        ...agent,
+        status: 'idle',
+        currentPhase: undefined,
+      };
+    });
+
+    if (changed) {
+      this.persist();
+    }
   }
 
   subscribe(listener: Listener): () => void {
@@ -377,6 +405,54 @@ class OrchestratorStoreImpl {
       return pipelineOutput;
     }
     return request.summary ?? '';
+  }
+
+  private async normalizePhaseOutputIfNeeded(
+    phaseNumber: string,
+    agentRole: string,
+    output: string,
+  ): Promise<string> {
+    if (phaseNumber !== '1A' || agentRole !== 'project-manager') {
+      return output;
+    }
+
+    const hasFunctionIds = /F-\d+/i.test(output);
+    const hasOpen = /\bOPEN\b/i.test(output);
+    const hasClose = /\bCLOSE\b/i.test(output);
+    if (hasFunctionIds && hasOpen && hasClose) {
+      return output;
+    }
+
+    try {
+      const repaired = await callAgentLLM({
+        agentRole,
+        phase: phaseNumber,
+        messages: [
+          {
+            role: 'user',
+            content: `Rewrite the following output into strict Phase 1A FAS format.
+
+Requirements:
+- Include at least 4 functions with IDs F-001, F-002, etc.
+- For each function include:
+  - user_value
+  - system_effect with explicit OPEN/CLOSE/NEUTRAL tag
+  - required_services
+  - close_pair (for OPEN functions)
+  - dependencies
+- Ensure both OPEN and CLOSE are explicitly present in the output.
+- Do not include code blocks.
+
+Original output:
+${output}`,
+          },
+        ],
+      });
+
+      return repaired || output;
+    } catch {
+      return output;
+    }
   }
 
   // ─── Phase Management ────────────────────────────
@@ -616,11 +692,17 @@ class OrchestratorStoreImpl {
     this.startPhase(phaseNumber, mapping.agentId);
 
     try {
-      const response = await callAgentLLM({
+      let response = await callAgentLLM({
         agentRole: mapping.agentRole,
         messages: [{ role: 'user', content: input }],
         phase: phaseNumber,
       });
+
+      response = await this.normalizePhaseOutputIfNeeded(
+        phaseNumber,
+        mapping.agentRole,
+        response,
+      );
 
       const vigilance = globalArchitectureVigilance.recordPhaseOutput(
         phaseNumber,
@@ -655,6 +737,16 @@ class OrchestratorStoreImpl {
         language: phaseNumber === '6A' || phaseNumber === '6B' ? 'typescript' : 'markdown',
         description: `Phase ${phaseNumber} output — ${mapping.agentRole}`,
       });
+
+      if (phaseNumber === '6A') {
+        saveGeneratedProgramFile({
+          fileName: 'implementation-phase-6a.ts',
+          content: response,
+          language: 'typescript',
+          phase: phaseNumber,
+          sourceAgent: mapping.agentRole,
+        });
+      }
 
       // ── PM GITHUB OPERATIONS ────────────────────────────────────────────────
       // PM is the sole committer; all phase outputs can be persisted to GitHub.

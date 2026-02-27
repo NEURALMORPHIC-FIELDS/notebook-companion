@@ -223,6 +223,19 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
 
+### Custom LLM Defaults (Agent Config)
+
+The **Custom LLM API** option is preloaded with these defaults:
+
+```text
+BASE URL: https://hawaii-rock-unlike-acute.trycloudflare.com/v1
+CHAT API: https://hawaii-rock-unlike-acute.trycloudflare.com/v1/chat/completions
+MODEL:    deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+```
+
+- The user can still edit these values in the UI at any time.
+- Legacy saved endpoints are auto-migrated to the current defaults.
+
 ### Development
 
 ```bash

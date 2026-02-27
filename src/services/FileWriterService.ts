@@ -8,6 +8,16 @@
 
 const REPO_CONFIG_KEY = 'nexus-repo-config';
 
+function toBase64Utf8(content: string): string {
+    const bytes = new TextEncoder().encode(content);
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+    return btoa(binary);
+}
+
 export interface RepoConfig {
     owner: string;
     repo: string;
@@ -48,7 +58,11 @@ export function loadRepoConfig(): RepoConfig | null {
 }
 
 export function saveRepoConfig(config: RepoConfig): void {
-    try { localStorage.setItem(REPO_CONFIG_KEY, JSON.stringify(config)); } catch { }
+    try {
+        localStorage.setItem(REPO_CONFIG_KEY, JSON.stringify(config));
+    } catch (error) {
+        console.warn('[FileWriterService] Failed to persist repository config.', error);
+    }
 }
 
 // ── File writer — direct GitHub API ──────────────────────────────────────────
@@ -82,10 +96,12 @@ export async function writeFile(
             const existing = await checkResp.json() as { sha?: string };
             existingSha = existing.sha;
         }
-    } catch { /* new file — no SHA needed */ }
+    } catch (error) {
+        console.warn('[FileWriterService] Unable to resolve existing file SHA. Proceeding as create.', error);
+    }
 
     // Encode content as base64 (GitHub API requirement)
-    const encoded = btoa(unescape(encodeURIComponent(params.content)));
+    const encoded = toBase64Utf8(params.content);
 
     const body: Record<string, string> = {
         message: params.message,
@@ -133,7 +149,9 @@ export function appendCommittedFile(file: CommittedFile): void {
     try {
         const existing = loadCommittedFiles();
         localStorage.setItem(LOG_KEY, JSON.stringify([file, ...existing]));
-    } catch { }
+    } catch (error) {
+        console.warn('[FileWriterService] Failed to append committed file entry.', error);
+    }
 }
 
 export function clearCommittedFiles(): void {

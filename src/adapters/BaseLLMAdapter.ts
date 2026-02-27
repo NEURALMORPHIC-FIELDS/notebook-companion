@@ -10,7 +10,7 @@ export interface LLMResponse {
     model: string;
     tokensUsed: { prompt: number; completion: number; total: number };
     latencyMs: number;
-    raw?: any;
+    raw?: unknown;
 }
 
 export interface LLMConfig {

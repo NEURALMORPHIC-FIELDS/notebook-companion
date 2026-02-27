@@ -139,4 +139,14 @@ Services: `src/services/GlobalArchitectureVigilance.ts` · Store: `src/stores/Or
 
 ---
 
+## Runtime Defaults — Custom LLM Agent Connection
+
+- Default Base URL: `https://hawaii-rock-unlike-acute.trycloudflare.com/v1`
+- Default Chat API: `https://hawaii-rock-unlike-acute.trycloudflare.com/v1/chat/completions`
+- Default Model: `deepseek-ai/DeepSeek-R1-Distill-Qwen-32B`
+- User override remains available in the UI for each agent.
+- Legacy custom endpoint values are normalized to current defaults on load.
+
+---
+
 *"Truth comes from code, not from text." — NEXUS AI v6 Core Philosophy*

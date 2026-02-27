@@ -9,7 +9,7 @@ export class TechLeadAgent extends BaseAgent {
 
         if (phase === '4') {
             const llmResponse = await this.callLLM(
-                `Generează Tech Spec pentru: "${input}". Include: tech stack, coding standards, thresholds calibrate, task breakdown, estimări complexitate.`,
+                `Generate a technical specification for: "${input}". Include: tech stack, coding standards, threshold calibration, task breakdown, and complexity estimates.`,
                 phase
             );
             return {

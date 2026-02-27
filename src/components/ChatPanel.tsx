@@ -21,7 +21,7 @@ const INITIAL_MESSAGES: Message[] = [
     id: 1,
     role: 'assistant',
     agent: 'PM',
-    content: 'Welcome to NEXUS AI Project Developer! I am your Project Manager agent, connected to your configured LLM engine. Describe your project and we will generate the complete architecture together.',
+    content: 'Welcome to NEXUS AI Project Developer! I am your Project Manager agent. I will interview you first (name, users, features, style, colors, auth, data, integrations, deployment, constraints), then build a professional handoff prompt for the specialist agents.',
     timestamp: '14:30',
   },
 ];
@@ -74,6 +74,57 @@ function persistMessages(msgs: Message[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
   } catch { /* ignore if quota exceeded */ }
+}
+
+function findStructuredStart(text: string): number {
+  const patterns = [
+    /\b1\)\s*PROJECT_INTENT\b/i,
+    /\bPROJECT_INTENT\b/i,
+  ];
+
+  const indexes = patterns
+    .map((pattern) => text.search(pattern))
+    .filter((index) => index >= 0);
+
+  if (indexes.length === 0) return -1;
+  return Math.min(...indexes);
+}
+
+function ensureInterviewQuestionsIfNeeded(text: string): string {
+  const hasTemplate =
+    /PROJECT_INTENT/i.test(text) &&
+    /FAS_DRAFT/i.test(text) &&
+    /ASSUMPTIONS_GAPS/i.test(text) &&
+    /PROFESSIONAL_HANDOFF_PROMPT/i.test(text) &&
+    /NEXT_STEP/i.test(text);
+
+  if (!hasTemplate) return text;
+
+  const hasQuestionMark = text.includes('?');
+  if (hasQuestionMark) return text;
+
+  return `${text}
+
+INTERVIEW_QUESTIONS
+- What is the project name and one-sentence mission?
+- Who are the primary users and what problem are we solving?
+- Which 3 core features are mandatory for the first version?
+- What visual direction and color palette do you prefer?
+- Do you need authentication and persistent storage in V1?
+- Which deployment target do you prefer (local, Vercel, Netlify, custom)?`;
+}
+
+function sanitizeAssistantText(text: string): string {
+  const cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<\/?think>/gi, '')
+    .replace(/```[\s\S]*?```/g, '[Code block omitted by PM policy. Continue with architecture and handoff details.]');
+
+  const start = findStructuredStart(cleaned);
+  const structured = start >= 0 ? cleaned.slice(start) : cleaned;
+  const normalized = structured.trim();
+  if (!normalized) return '';
+  return ensureInterviewQuestionsIfNeeded(normalized);
 }
 
 export default function ChatPanel() {
@@ -130,12 +181,13 @@ export default function ChatPanel() {
 
     const upsert = (chunk: string) => {
       assistantSoFar += chunk;
+      const safeText = sanitizeAssistantText(assistantSoFar);
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last?.role === 'assistant' && last.id === assistantId) {
-          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: safeText } : m);
         }
-        return [...prev, { id: assistantId, role: 'assistant', agent: 'PM', content: assistantSoFar, timestamp: getNow() }];
+        return [...prev, { id: assistantId, role: 'assistant', agent: 'PM', content: safeText, timestamp: getNow() }];
       });
     };
 
@@ -158,7 +210,34 @@ export default function ChatPanel() {
 
         const systemPrompt = {
           role: 'system',
-          content: `You are the AI Project Manager of the NEXUS AI v6 platform. You are connected via "${activeConfig!.model || 'custom model'}" at endpoint "${activeConfig!.baseUrl}". You help the user define the architecture, features, and project plan. You respond clearly and in a structured way. When asked which LLM you are connected to, you openly say: model "${activeConfig!.model || 'custom'}" via Custom LLM API at URL "${activeConfig!.baseUrl}".`,
+          content: `You are NEXUS AI — PM Agent. You are connected via "${activeConfig!.model || 'custom model'}" at endpoint "${activeConfig!.baseUrl}". Your role is planning and architecture definition, not implementation.
+
+Platform knowledge:
+- NEXUS AI uses a 14-agent SDLC pipeline.
+- Phase chain: 1A -> 1B -> 2 -> 3A -> 3B -> 4 -> 5 -> 6A -> 6B -> 7 -> 8 -> 9 -> 10 -> 11.
+- PM handles discovery and professional handoff only.
+- Specialist agents implement code in later phases.
+- Autonomy mode 5 means HITL skipped and GitHub auto-commit blocked.
+- Outputs are stored in Notebook; implementation artifacts can be saved as files.
+- If platform capability is unknown, explicitly say unknown. Never invent features.
+
+Rules:
+- Do not generate executable code (HTML/CSS/JS/TS/Python/SQL/Bash).
+- Do not output chain-of-thought or <think> tags.
+- If the user asks for code, refuse implementation and continue with planning + professional handoff to the next agent.
+- Be transparent about model and endpoint when asked.
+- Run a discovery interview before final handoff.
+- Collect at least: project name, target users, core features, visual style, color palette, auth, storage/data, integrations, deployment target, timeline, and constraints.
+- Ask targeted follow-up questions when information is missing.
+- If user says "you decide", make explicit assumptions and continue.
+- If user asks how the platform works, answer from Platform knowledge first and then continue interview flow.
+
+Mandatory response structure:
+1) PROJECT_INTENT
+2) FAS_DRAFT
+3) ASSUMPTIONS_GAPS
+4) PROFESSIONAL_HANDOFF_PROMPT
+5) NEXT_STEP`,
         };
         fetchBody = JSON.stringify({
           model: activeConfig!.model || 'default',

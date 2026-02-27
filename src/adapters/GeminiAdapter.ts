@@ -29,7 +29,7 @@ export class GeminiAdapter extends BaseLLMAdapter {
                 parts: [{ text: m.content }],
             }));
 
-        const body: Record<string, any> = {
+        const body: Record<string, unknown> = {
             contents: chatMessages,
             generationConfig: {
                 maxOutputTokens: mergedConfig.maxTokens ?? 4096,

@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 import {
   Play, Trash2, CheckCircle, XCircle, Terminal,
   FileCode, Bot, Loader2, Cpu, Wand2, RefreshCw,
-  Shield, Bug, BookOpen, Layers, PlayCircle, Zap, FlaskConical
+  Shield, Bug, BookOpen, Layers, Zap, FlaskConical, Download
 } from "lucide-react";
 import { toast } from "sonner";
+import { downloadProgramFile, saveGeneratedProgramFile } from "@/services/GeneratedProgramFilesService";
 
 // ─── Types ───────────────────────────────────────────
 interface ReviewResult {
@@ -32,6 +33,14 @@ interface CodeEntry {
   // Tests (Sprint D)
   testResult?: ExecResult;
   testStatus?: 'idle' | 'running' | 'done' | 'error';
+}
+
+interface NotebookSubmitEntry {
+  sourceAgent: string;
+  phase: string;
+  code: string;
+  language?: string;
+  description?: string;
 }
 
 // ─── Review Agents Pipeline ──────────────────────────
@@ -66,6 +75,10 @@ const STORAGE_KEY = 'nexus-notebook-entries';
 const EVENT_NAME = 'nexus-notebook-submit';
 const REVIEW_REQUIRED_PHASES = new Set(['6A', '6B']);
 
+function emitNotebookSubmit(entry: NotebookSubmitEntry): void {
+  window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: entry }));
+}
+
 // ─── LLM — uses agent-llm edge function ─────────────
 const AGENT_LLM_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-llm`;
 
@@ -99,23 +112,35 @@ function loadEntries(): CodeEntry[] {
 }
 
 function persistEntries(entries: CodeEntry[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); } catch { }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // Ignore storage quota issues at runtime.
+  }
 }
 
-// ─── Global API for agents to submit code ────────────
-// Agents call: window.dispatchEvent(new CustomEvent('nexus-notebook-submit', { detail: { ... } }))
-// Or: (window as any).nexusNotebook.submit({ sourceAgent, phase, code, language, description })
-(window as any).nexusNotebook = {
-  submit: (entry: { sourceAgent: string; phase: string; code: string; language?: string; description?: string }) => {
-    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: entry }));
-  },
-};
+function getEntryFileName(entry: CodeEntry): string {
+  if (entry.phase === '6A') return 'implementation-phase-6a.ts';
+  if (entry.phase === '6B') return 'implementation-phase-6b.ts';
+  if (entry.language === 'markdown') return `phase-${entry.phase}.md`;
+  if (entry.language === 'javascript') return `phase-${entry.phase}.js`;
+  if (entry.language === 'typescript') return `phase-${entry.phase}.ts`;
+  return `phase-${entry.phase}.txt`;
+}
 
 // ═══════════════════════════════════════════════════════
 export default function NotebookPanel() {
   const [entries, setEntries] = useState<CodeEntry[]>(loadEntries);
 
   useEffect(() => { persistEntries(entries); }, [entries]);
+
+  // Register global API after mount, to avoid import-time side effects.
+  useEffect(() => {
+    window.nexusNotebook = { submit: emitNotebookSubmit };
+    return () => {
+      window.nexusNotebook = undefined;
+    };
+  }, []);
 
   // Listen for agent submissions
   useEffect(() => {
@@ -266,16 +291,18 @@ export default function NotebookPanel() {
     }
   }, [entries]);
 
-  // Demo: simulate an agent submitting code
-  const simulateAgentSubmission = () => {
-    (window as any).nexusNotebook.submit({
-      sourceAgent: 'Backend Engineer',
-      phase: '6A',
-      code: `import express from 'express';\nconst app = express();\n\napp.get('/api/todos', (req, res) => {\n  const todos = db.query('SELECT * FROM todos WHERE user_id = ' + req.query.userId);\n  res.json(todos);\n});\n\napp.post('/api/todos', (req, res) => {\n  const { title } = req.body;\n  db.query(\`INSERT INTO todos (title) VALUES ('\${title}')\`);\n  res.status(201).json({ ok: true });\n});\n\napp.listen(3000);`,
-      language: 'typescript',
-      description: 'REST API endpoints for todo CRUD operations',
+  const saveEntryToFile = useCallback((entry: CodeEntry) => {
+    const fileName = getEntryFileName(entry);
+    saveGeneratedProgramFile({
+      fileName,
+      content: entry.code,
+      language: entry.language,
+      phase: entry.phase,
+      sourceAgent: entry.sourceAgent,
     });
-  };
+    downloadProgramFile(fileName, entry.code);
+    toast.success(`Saved ${fileName}`);
+  }, []);
 
   const llmLabel = 'Lovable AI (agent-llm)';
 
@@ -290,12 +317,6 @@ export default function NotebookPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={simulateAgentSubmission}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-          >
-            <PlayCircle size={14} /> Simulate Agent Submit
-          </button>
           <button
             onClick={clearAll}
             className="px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -322,7 +343,7 @@ export default function NotebookPanel() {
           <Terminal size={32} className="mx-auto text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground mb-1">No code submitted yet.</p>
           <p className="text-xs text-muted-foreground/70">
-            Agents submit code via <code className="text-primary">window.nexusNotebook.submit({"{}"})</code> or click "Simulate" to demo.
+            Agents submit code via <code className="text-primary">window.nexusNotebook.submit({"{}"})</code>.
           </p>
         </div>
       )}
@@ -369,6 +390,12 @@ export default function NotebookPanel() {
                     className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted-foreground hover:text-primary transition-colors"
                   >
                     <RefreshCw size={10} /> Re-run
+                  </button>
+                  <button
+                    onClick={() => saveEntryToFile(entry)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                  >
+                    <Download size={10} /> Save File
                   </button>
                   {/* Execute button — calls Deno sandbox */}
                   <button

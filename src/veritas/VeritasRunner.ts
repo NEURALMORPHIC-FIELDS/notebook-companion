@@ -86,7 +86,7 @@ export class VeritasRunner {
     /**
      * Persist Veritas report to localStorage.
      * Called by VeritasRunner after each run.
-     * Also callable by tests to inject a mock report.
+     * Also callable by tests to inject a synthetic report.
      */
     public static saveReport(report: VeritasReport): void {
         localStorage.setItem(VERITAS_REPORT_KEY, JSON.stringify(report));

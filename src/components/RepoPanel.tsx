@@ -425,7 +425,7 @@ export default function RepoPanel() {
 
                         {/* Create new */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-mono text-muted-foreground uppercase">Creare repository nou</label>
+                            <label className="text-[10px] font-mono text-muted-foreground uppercase">Create new repository</label>
                             <div className="flex gap-2">
                                 <input value={newRepoName} onChange={e => { setNewRepoName(e.target.value); setRepoError(''); }}
                                     placeholder="nexus-project-name"
@@ -448,7 +448,7 @@ export default function RepoPanel() {
 
                         {/* Use existing */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-mono text-muted-foreground uppercase">Sau folosește repository existent</label>
+                            <label className="text-[10px] font-mono text-muted-foreground uppercase">Or use an existing repository</label>
                             <div className="flex gap-2">
                                 <span className="px-3 py-2 rounded-lg bg-nexus-deep border border-nexus-border-subtle text-xs text-muted-foreground">{config.owner}/</span>
                                 <input value={existingRepo} onChange={e => setExistingRepo(e.target.value)}
@@ -475,14 +475,14 @@ export default function RepoPanel() {
                                 <Rocket size={14} className="text-primary" />
                                 Push Project to GitHub
                                 <span className="text-[10px] font-mono text-muted-foreground">
-                                    {eligibleEntries.length} fișiere
+                                    {eligibleEntries.length} files
                                 </span>
                             </h2>
                         </div>
 
                         {eligibleEntries.length === 0 ? (
                             <p className="text-xs text-muted-foreground text-center py-3">
-                                Rulează pipeline-ul mai întâi — fazele generate apar automat aici.
+                                Run the pipeline first — generated phases will appear here automatically.
                             </p>
                         ) : (
                             <>

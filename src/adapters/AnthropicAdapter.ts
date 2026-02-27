@@ -26,7 +26,7 @@ export class AnthropicAdapter extends BaseLLMAdapter {
             .filter(m => m.role !== 'system')
             .map(m => ({ role: m.role, content: m.content }));
 
-        const body: Record<string, any> = {
+        const body: Record<string, unknown> = {
             model,
             messages: chatMessages,
             max_tokens: mergedConfig.maxTokens ?? 4096,

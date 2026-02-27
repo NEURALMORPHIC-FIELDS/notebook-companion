@@ -7,7 +7,7 @@ export interface ApprovalRequest {
     phase: string;
     agentRole: string;
     summary: string;
-    details: Record<string, any>;
+    details: Record<string, unknown>;
     veritasExitCode: number;
     blockedByDA: boolean;
     status: ApprovalStatus;
@@ -21,7 +21,7 @@ export function createApprovalRequest(
     phase: string,
     agentRole: string,
     summary: string,
-    details: Record<string, any>,
+    details: Record<string, unknown>,
     veritasExitCode: number,
     blockedByDA: boolean,
 ): ApprovalRequest {

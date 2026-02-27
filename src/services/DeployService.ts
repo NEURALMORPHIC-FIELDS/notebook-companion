@@ -40,7 +40,11 @@ export function loadDeployConfig(): DeployConfig | null {
 }
 
 export function saveDeployConfig(config: DeployConfig): void {
-    try { localStorage.setItem(DEPLOY_CONFIG_KEY, JSON.stringify(config)); } catch { }
+    try {
+        localStorage.setItem(DEPLOY_CONFIG_KEY, JSON.stringify(config));
+    } catch (error) {
+        console.warn('[DeployService] Failed to persist deploy config.', error);
+    }
 }
 
 // ── Deploy log ────────────────────────────────────────────────────────────────
@@ -56,7 +60,9 @@ export function appendDeployLog(entry: DeployLogEntry): void {
     try {
         const existing = loadDeployLog();
         localStorage.setItem(DEPLOY_LOG_KEY, JSON.stringify([entry, ...existing].slice(0, 50)));
-    } catch { }
+    } catch (error) {
+        console.warn('[DeployService] Failed to persist deploy log entry.', error);
+    }
 }
 
 export function clearDeployLog(): void {

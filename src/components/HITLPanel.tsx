@@ -19,7 +19,7 @@ import { ApprovalRequest } from "@/hitl/ApprovalRequest";
 import {
   CheckCircle, XCircle, Clock, AlertTriangle, Bot,
   MessageSquare, ChevronDown, ChevronUp, Eye, Code,
-  Sparkles, Send, Pencil, History, Palette
+  Sparkles, Send, Pencil, History, Palette, RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 import { callAgentLLM } from "@/services/AgentLLMService";
@@ -174,6 +174,14 @@ export default function HITLPanel() {
     toast.success(`Autonomy mode set to ${mode}`);
   };
 
+  const handleResetPipelineState = () => {
+    orchestratorStore.reset();
+    setActiveRequest(null);
+    setChatMsgs({});
+    setChatInput('');
+    toast.success('Pipeline state reset. Agents were returned to idle.');
+  };
+
   // Auto-open first pending on load
   useEffect(() => {
     if (pendingApprovals.length > 0 && !activeRequest) {
@@ -201,7 +209,7 @@ export default function HITLPanel() {
   // ── Modify: send user message to agent, wait for revised output ────────────
   const handleModify = async (req: ApprovalRequest) => {
     if (!chatInput.trim()) {
-      toast.error('Scrie ce dorești să modifici în câmpul de chat.');
+      toast.error('Write the requested changes in the chat field.');
       return;
     }
     const userText = chatInput.trim();
@@ -225,7 +233,7 @@ export default function HITLPanel() {
       // The revised version will be used when user clicks Approve
       const updated = orchestratorStore.updateApprovalSummary(req.id, revised);
       if (!updated) {
-        toast.error('Nu am putut actualiza cererea HITL cu varianta revizuită.');
+        toast.error('Could not update the HITL request with the revised version.');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error';
@@ -292,9 +300,16 @@ export default function HITLPanel() {
               )}
               {autonomyMode === 5 && (
                 <p className="text-[9px] text-nexus-amber">
-                  Mode 5 active: HITL skipped and GitHub auto-commit is blocked.
+                  Mode 5 active: autonomous flow on, approvals skipped, GitHub auto-commit intentionally off.
                 </p>
               )}
+              <button
+                onClick={handleResetPipelineState}
+                className="w-full flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-nexus-border-subtle hover:border-primary/40 hover:bg-nexus-surface-hover text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <RotateCcw size={11} />
+                Reset Pipeline State
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -314,7 +329,7 @@ export default function HITLPanel() {
                 </div>
                 <p className="text-[10px] text-muted-foreground truncate">{req.agentRole}</p>
                 <p className="text-[9px] font-mono text-muted-foreground/60 mt-0.5">
-                  {new Date(req.createdAt).toLocaleTimeString('ro-RO')}
+                  {new Date(req.createdAt).toLocaleTimeString('en-US')}
                 </p>
                 {(chatMsgs[req.id]?.length ?? 0) > 0 && (
                   <div className="flex items-center gap-1 mt-1 text-[9px] text-primary">
@@ -354,7 +369,7 @@ export default function HITLPanel() {
                   Phase {activeRequest.phase} — {activeRequest.agentRole}
                 </h3>
                 <p className="text-[10px] font-mono text-muted-foreground">
-                  {new Date(activeRequest.createdAt).toLocaleString('ro-RO')}
+                  {new Date(activeRequest.createdAt).toLocaleString('en-US')}
                 </p>
               </div>
               {statusBadge(activeRequest.status)}
@@ -407,7 +422,7 @@ export default function HITLPanel() {
                     value={chatInput}
                     onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleModify(activeRequest)}
-                    placeholder="Cere modificări agentului… (Ex: schimbă culoarea în albastru, adaugă autentificare)"
+                    placeholder="Request changes from the agent... (Example: change color to blue, add authentication)"
                     disabled={sending}
                     className="flex-1 px-3 py-2 text-xs rounded-xl bg-black/40 border border-nexus-border-subtle text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
                   />

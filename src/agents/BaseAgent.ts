@@ -6,7 +6,7 @@ export interface AgentOutput {
     agentRole: string;
     phase: string;
     content: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
 }
 
 export abstract class BaseAgent {

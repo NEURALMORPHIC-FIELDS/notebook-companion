@@ -8,7 +8,7 @@ export class SecurityAuditorAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '9'
-                ? `Efectuează audit de securitate pentru: "${input}". Verifică OWASP Top 10, RLS policies, autentificare, injection vectors. Dă severity rating.`
+                ? `Perform a security audit for: "${input}". Check OWASP Top 10, RLS policies, authentication, and injection vectors. Provide severity ratings.`
                 : input,
             phase
         );

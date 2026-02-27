@@ -2,6 +2,7 @@
 import { AgentOrchestrator } from './orchestrator/AgentOrchestrator';
 import { SessionManager } from './memory/SessionManager';
 import { VeritasRunner } from './veritas/VeritasRunner';
+import { APP_CRITICAL_MODULES } from './veritas/AppCriticalModules';
 
 export async function activate() {
     console.log('[NEXUS AI v6] Extension Activated');
@@ -11,7 +12,7 @@ export async function activate() {
 
     // 1. Run Veritas before anything else
     const veritas = new VeritasRunner();
-    const exitCode = await veritas.runVeritas([], true);
+    const exitCode = await veritas.runVeritas([...APP_CRITICAL_MODULES], true);
 
     if (exitCode !== 0) {
         console.error(`[NEXUS AI] Initial Veritas Check Failed (Code 1). Some critical modules are missing.`);
@@ -29,15 +30,4 @@ export async function activate() {
 
 export function deactivate() {
     console.log('[NEXUS AI v6] Extension Deactivated');
-}
-
-// Simple test run for manual invocation
-import { fileURLToPath } from 'url';
-
-const isMainModule = typeof require !== 'undefined'
-    ? require.main === module
-    : process.argv[1] === fileURLToPath(import.meta.url);
-
-if (isMainModule) {
-    activate().catch(console.error);
 }

@@ -8,7 +8,7 @@ export class BrandDesignerAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '3B'
-                ? `Creează brand guide pentru: "${input}". Include: paletă de culori (hex + semantic tokens), tipografie, direcție vizuală, mood board.`
+                ? `Create a brand guide for: "${input}". Include: color palette (hex + semantic tokens), typography, visual direction, and mood board.`
                 : input,
             phase
         );

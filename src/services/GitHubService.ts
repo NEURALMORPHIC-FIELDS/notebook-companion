@@ -11,6 +11,16 @@ import { loadRepoConfig, saveRepoConfig } from './FileWriterService';
 const GH_API = 'https://api.github.com';
 const GH_USER_KEY = 'nexus-github-user';
 
+function toBase64Utf8(content: string): string {
+    const bytes = new TextEncoder().encode(content);
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+    return btoa(binary);
+}
+
 export interface GitHubRepo {
     name: string;
     full_name: string;
@@ -135,11 +145,13 @@ export async function pmCommitFile(
             'GET', `${apiPath}?ref=${branch}`, config.token
         );
         existingSha = existing.sha;
-    } catch { /* new file — OK */ }
+    } catch (error) {
+        console.warn('[PM-GitHub] Existing file SHA not found. Creating a new file.', error);
+    }
 
     const body: Record<string, string> = {
         message: commitMsg,
-        content: btoa(unescape(encodeURIComponent(content))),
+        content: toBase64Utf8(content),
         branch,
     };
     if (existingSha) body.sha = existingSha;

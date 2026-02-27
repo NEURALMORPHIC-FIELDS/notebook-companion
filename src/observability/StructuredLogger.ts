@@ -7,7 +7,7 @@ export interface LogEntry {
     level: LogLevel;
     source: string;
     message: string;
-    data?: Record<string, any>;
+    data?: Record<string, unknown>;
     phase?: string;
     agent?: string;
     traceId?: string;
@@ -25,7 +25,7 @@ export class StructuredLogger {
         return StructuredLogger.instance;
     }
 
-    public log(level: LogLevel, source: string, message: string, data?: Record<string, any>): void {
+    public log(level: LogLevel, source: string, message: string, data?: Record<string, unknown>): void {
         const entry: LogEntry = {
             timestamp: new Date().toISOString(),
             level,
@@ -57,19 +57,19 @@ export class StructuredLogger {
         }
     }
 
-    public info(source: string, message: string, data?: Record<string, any>): void {
+    public info(source: string, message: string, data?: Record<string, unknown>): void {
         this.log('INFO', source, message, data);
     }
 
-    public warn(source: string, message: string, data?: Record<string, any>): void {
+    public warn(source: string, message: string, data?: Record<string, unknown>): void {
         this.log('WARN', source, message, data);
     }
 
-    public error(source: string, message: string, data?: Record<string, any>): void {
+    public error(source: string, message: string, data?: Record<string, unknown>): void {
         this.log('ERROR', source, message, data);
     }
 
-    public debug(source: string, message: string, data?: Record<string, any>): void {
+    public debug(source: string, message: string, data?: Record<string, unknown>): void {
         this.log('DEBUG', source, message, data);
     }
 

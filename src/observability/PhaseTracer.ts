@@ -71,7 +71,7 @@ export class PhaseTracer {
         return [...this.completedTraces];
     }
 
-    public getSummary(): Record<string, any> {
+    public getSummary(): Record<string, number> {
         return {
             active: this.activeTraces.size,
             completed: this.completedTraces.length,

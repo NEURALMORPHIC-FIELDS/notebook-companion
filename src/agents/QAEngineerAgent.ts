@@ -8,7 +8,7 @@ export class QAEngineerAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '8'
-                ? `Generează test plan complet pentru: "${input}". Include: test cases, edge cases, coverage targets, mapping la funcții FAS.`
+                ? `Generate a complete test plan for: "${input}". Include: test cases, edge cases, coverage targets, and mapping to FAS functions.`
                 : input,
             phase
         );

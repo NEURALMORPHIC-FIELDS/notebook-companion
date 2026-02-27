@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { ExternalLink, Key, Check, AlertCircle } from "lucide-react";
-import { AGENT_SERVICES, type AgentApiConfig, type AgentService } from "@/data/agent-services";
+import {
+  AGENT_SERVICES,
+  CUSTOM_LLM_BASE_URL,
+  CUSTOM_LLM_CHAT_API,
+  CUSTOM_LLM_MODEL,
+  type AgentApiConfig,
+  type AgentService,
+} from "@/data/agent-services";
 import type { Agent } from "@/data/nexus-data";
 import AgentIcon from "@/components/AgentIcon";
 
@@ -200,7 +207,7 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                             type="text"
                             value={cfg?.baseUrl || ""}
                             onChange={(e) => handleCustomField(service.id, "baseUrl", e.target.value)}
-                            placeholder="https://epa-theta-processing-faculty.trycloudflare.com/v1"
+                            placeholder={CUSTOM_LLM_BASE_URL}
                             className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
                           />
                         </div>
@@ -210,7 +217,7 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                             type="text"
                             value={cfg?.chatApi || ""}
                             onChange={(e) => handleCustomField(service.id, "chatApi", e.target.value)}
-                            placeholder="https://.../v1/chat/completions"
+                            placeholder={CUSTOM_LLM_CHAT_API}
                             className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
                           />
                         </div>
@@ -220,7 +227,7 @@ export default function AgentConfigPopover({ agent, configs, onSave, children }:
                             type="text"
                             value={cfg?.model || ""}
                             onChange={(e) => handleCustomField(service.id, "model", e.target.value)}
-                            placeholder="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+                            placeholder={CUSTOM_LLM_MODEL}
                             className="w-full h-6 px-2 text-[10px] font-mono bg-muted/50 border border-border rounded text-foreground focus:border-primary focus:outline-none"
                           />
                         </div>

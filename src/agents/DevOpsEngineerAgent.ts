@@ -8,7 +8,7 @@ export class DevOpsEngineerAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '11'
-                ? `Configurează CI/CD pipeline pentru: "${input}". Include: Dockerfile, GitHub Actions, stages (lint, test, build, veritas-gate, deploy), monitoring.`
+                ? `Configure a CI/CD pipeline for: "${input}". Include: Dockerfile, GitHub Actions, stages (lint, test, build, veritas-gate, deploy), and monitoring.`
                 : input,
             phase
         );

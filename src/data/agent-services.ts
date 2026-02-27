@@ -128,17 +128,147 @@ export interface AgentApiConfig {
   enabled: boolean;
 }
 
+const AGENT_CONFIG_STORAGE_KEY = 'nexus-agent-configs';
+
+const AGENT_ID_TO_CONFIG_KEY: Record<string, string> = {
+  pm: 'pm',
+  architect: 'architect',
+  'devils-advocate': 'da',
+  'tech-lead': 'techlead',
+  backend: 'backend',
+  frontend: 'frontend',
+  qa: 'qa',
+  security: 'security',
+  'code-reviewer': 'codereviewer',
+  'tech-writer': 'techwriter',
+  devops: 'devops',
+  brand: 'brand',
+  uiux: 'uiux',
+  'asset-gen': 'assetgen',
+};
+
+const AGENT_CONFIG_KEYS: string[] = Array.from(new Set(Object.values(AGENT_ID_TO_CONFIG_KEY)));
+
+export const CUSTOM_LLM_BASE_URL = 'https://hawaii-rock-unlike-acute.trycloudflare.com/v1';
+export const CUSTOM_LLM_CHAT_API = 'https://hawaii-rock-unlike-acute.trycloudflare.com/v1/chat/completions';
+export const CUSTOM_LLM_MODEL = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B';
+
+const LEGACY_CUSTOM_LLM_BASE_URLS = [
+  'https://latino-advocate-representation-inkjet.trycloudflare.com/v1',
+  'https://epa-theta-processing-faculty.trycloudflare.com/v1',
+];
+const LEGACY_CUSTOM_LLM_CHAT_APIS = [
+  'https://latino-advocate-representation-inkjet.trycloudflare.com/v1/chat/completions',
+  'https://epa-theta-processing-faculty.trycloudflare.com/v1/chat/completions',
+];
+const LEGACY_CUSTOM_LLM_CHAT_PLACEHOLDER = 'https://.../v1/chat/completions';
+
+function normalizeCustomBaseUrl(value?: string): string {
+  const trimmed = value?.trim() || '';
+  if (!trimmed || LEGACY_CUSTOM_LLM_BASE_URLS.includes(trimmed)) {
+    return CUSTOM_LLM_BASE_URL;
+  }
+  return trimmed;
+}
+
+function normalizeCustomChatApi(value?: string): string {
+  const trimmed = value?.trim() || '';
+  if (
+    !trimmed ||
+    LEGACY_CUSTOM_LLM_CHAT_APIS.includes(trimmed) ||
+    trimmed === LEGACY_CUSTOM_LLM_CHAT_PLACEHOLDER
+  ) {
+    return CUSTOM_LLM_CHAT_API;
+  }
+  return trimmed;
+}
+
+function normalizeCustomModel(value?: string): string {
+  const trimmed = value?.trim() || '';
+  return trimmed || CUSTOM_LLM_MODEL;
+}
+
+function normalizeAgentConfigs(
+  configs: Record<string, AgentApiConfig[]>,
+): { normalized: Record<string, AgentApiConfig[]>; changed: boolean } {
+  const normalized: Record<string, AgentApiConfig[]> = {};
+  let changed = false;
+
+  Object.entries(configs).forEach(([key, value]) => {
+    normalized[key] = Array.isArray(value) ? value.map((cfg) => ({ ...cfg })) : [];
+  });
+
+  Object.entries(AGENT_ID_TO_CONFIG_KEY).forEach(([agentId, configKey]) => {
+    if (agentId === configKey) return;
+    if (normalized[agentId] && !normalized[configKey]) {
+      normalized[configKey] = normalized[agentId];
+      delete normalized[agentId];
+      changed = true;
+      return;
+    }
+    if (normalized[agentId]) {
+      delete normalized[agentId];
+      changed = true;
+    }
+  });
+
+  AGENT_CONFIG_KEYS.forEach((configKey) => {
+    const configsForAgent = normalized[configKey] ? [...normalized[configKey]] : [];
+    if (!normalized[configKey]) {
+      changed = true;
+    }
+
+    const customIndex = configsForAgent.findIndex((cfg) => cfg.serviceId === 'custom');
+    const existingCustom = customIndex >= 0 ? configsForAgent[customIndex] : undefined;
+    const normalizedCustom: AgentApiConfig = {
+      serviceId: 'custom',
+      apiKey: existingCustom?.apiKey || '',
+      baseUrl: normalizeCustomBaseUrl(existingCustom?.baseUrl),
+      chatApi: normalizeCustomChatApi(existingCustom?.chatApi),
+      model: normalizeCustomModel(existingCustom?.model),
+      enabled: existingCustom?.enabled ?? false,
+    };
+
+    if (customIndex === -1) {
+      configsForAgent.push(normalizedCustom);
+      changed = true;
+    } else {
+      const hadChanges =
+        existingCustom?.apiKey !== normalizedCustom.apiKey ||
+        existingCustom?.baseUrl !== normalizedCustom.baseUrl ||
+        existingCustom?.chatApi !== normalizedCustom.chatApi ||
+        existingCustom?.model !== normalizedCustom.model ||
+        existingCustom?.enabled !== normalizedCustom.enabled;
+      if (hadChanges) changed = true;
+      configsForAgent[customIndex] = normalizedCustom;
+    }
+
+    normalized[configKey] = configsForAgent;
+  });
+
+  return { normalized, changed };
+}
+
 export function loadAgentConfigs(): Record<string, AgentApiConfig[]> {
   try {
-    const raw = localStorage.getItem('nexus-agent-configs');
-    return raw ? JSON.parse(raw) : {};
+    const raw = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const source = parsed && typeof parsed === 'object'
+      ? parsed as Record<string, AgentApiConfig[]>
+      : {};
+    const { normalized, changed } = normalizeAgentConfigs(source);
+    if (changed) {
+      localStorage.setItem(AGENT_CONFIG_STORAGE_KEY, JSON.stringify(normalized));
+    }
+    return normalized;
   } catch {
     return {};
   }
 }
 
 export function saveAgentConfigs(configs: Record<string, AgentApiConfig[]>) {
-  localStorage.setItem('nexus-agent-configs', JSON.stringify(configs));
+  const { normalized } = normalizeAgentConfigs(configs);
+  localStorage.setItem(AGENT_CONFIG_STORAGE_KEY, JSON.stringify(normalized));
   // Dispatch custom event so same-window listeners can react
   window.dispatchEvent(new CustomEvent('nexus-agent-configs-changed'));
 }

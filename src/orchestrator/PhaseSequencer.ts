@@ -25,11 +25,6 @@ export interface PhaseOutput {
     approvedAt: string;
 }
 
-/** Phases that require HITL before next phase starts */
-const HITL_REQUIRED = new Set([
-    '1A', '1B', '2', '3A', '3B', '4', '5', '6A', '7', '8', '9', '10', '11'
-]);
-
 /** Ordered chain of SDLC phases */
 const PHASE_CHAIN: string[] = [
     '1A', '1B', '2', '3A', '3B', '4', '5', '6A', '6B', '7', '8', '9', '10', '11'
@@ -183,10 +178,11 @@ export class PhaseSequencer {
                     + this.wrap('Security Audit (Phase 9)', get('9'))
                     + '\n\nGenerate the CI/CD pipeline configuration, infrastructure-as-code, and deployment runbook.';
 
-            default:
+            default: {
                 // Generic fallback: use the immediately preceding phase output
                 const prevPhase = PHASE_CHAIN[PHASE_CHAIN.indexOf(phase) - 1];
                 return prevPhase ? get(prevPhase) : 'Begin this phase.';
+            }
         }
     }
 

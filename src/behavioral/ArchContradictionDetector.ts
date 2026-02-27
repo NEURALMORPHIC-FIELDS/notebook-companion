@@ -22,7 +22,7 @@ export interface FeedbackLoop {
 
 export interface SystemConstant {
     name: string;
-    value: any;
+    value: unknown;
     isThreshold?: boolean;
     calibrationBasis?: string;
 }

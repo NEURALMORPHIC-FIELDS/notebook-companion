@@ -8,7 +8,7 @@ export class UIUXDesignerAgent extends BaseAgent {
         const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '3B'
-                ? `Creează design system pentru: "${input}". Include: spacing scale, breakpoints, component library, accessibility (WCAG AA), user flows.`
+                ? `Create a design system for: "${input}". Include: spacing scale, breakpoints, component library, accessibility (WCAG AA), and user flows.`
                 : input,
             phase
         );

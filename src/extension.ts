@@ -11,7 +11,7 @@ export async function activate() {
 
     // 1. Run Veritas before anything else
     const veritas = new VeritasRunner();
-    const exitCode = await veritas.runVeritas(true);
+    const exitCode = await veritas.runVeritas([], true);
 
     if (exitCode !== 0) {
         console.error(`[NEXUS AI] Initial Veritas Check Failed (Code 1). Some critical modules are missing.`);

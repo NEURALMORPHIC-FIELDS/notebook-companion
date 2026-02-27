@@ -7,7 +7,7 @@ export class FrontendEngineerAgent extends BaseAgent {
     private reporter = new RanVsWorkedReporter();
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
-        const phase = context['phase'] || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(input, phase);
 
         const report = this.reporter.generateEmptyReport();

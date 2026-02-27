@@ -13,7 +13,7 @@
 
 **A professional software company, all departments replaced by AI agents.**
 
-The user is the client — they describe what they want in natural language. NEXUS AI v6 runs the full SDLC: from requirements gathering → architecture → implementation → code review → QA → security audit → documentation → deployment. Every phase is gated by human approval (HITL) and machine verification (Veritas).
+The user is the client — they describe what they want in natural language. NEXUS AI v6 runs the full SDLC: from requirements gathering → architecture → implementation → code review → QA → security audit → documentation → deployment. Approval is enforced by a central autonomy policy engine (modes 1–5), with machine verification (Veritas + Global Architecture Vigilance) always active.
 
 ---
 
@@ -25,14 +25,15 @@ The user is the client — they describe what they want in natural language. NEX
 |-----------|--------|-------|
 | **14 AI Agents** | ✅ Active | PM, Architect, DA, TL, Backend, Frontend, QA, Security, CodeReview, TechWriter, DevOps, Brand, UX, Assets |
 | **15-Phase SDLC Pipeline** | ✅ Connected | Phase 0 → 1A → ... → 11, automatic sequencing |
-| **PhaseSequencer** | ✅ Active | After HITL Approve → auto-starts next phase with context-aware input |
-| **HITL Panel** | ✅ Active | Known Incomplete → DA Review → Approve/Reject |
+| **PhaseSequencer** | ✅ Active | After approval resolution (human or auto) → auto-starts next phase with context-aware input |
+| **HITL Panel + Autonomy Policy Control** | ✅ Active | 5 policy modes (strict approvals → full autonomy), no extra tab |
+| **Global Architecture Vigilance** | ✅ Active | Persistent structural snapshots, stale downstream detection, systemic drift guard |
 | **Devil's Advocate** | ✅ Active | Pre-HITL contestation, CRITICAL/HIGH/MEDIUM severity parsing |
 | **Veritas Gate (Browser)** | ✅ Active | SanityGate reads localStorage report, blocks HITL if exit_code ≠ 0 |
 | **Veritas Live Run** | ✅ Active | ▶ Run Veritas button calls `veritas-runner` edge fn, replaces mock data live |
 | **Code Executor (Deno)** | ✅ Active | `code-executor` edge fn — runs TypeScript in isolated sandbox (run + test modes) |
-| **Agent Notebook** | ✅ Active | 4-agent review + Execute + Run Tests buttons; test result table per entry |
-| **GitHub File Writer** | ✅ Active | `file-writer` edge fn + RepoPanel — commit reviewed code directly to GitHub |
+| **Agent Notebook** | ✅ Active | 4-agent review + Execute + Run Tests; 6A/6B entries start `pending`, documentation entries auto-`passed` |
+| **GitHub Direct Writer + PM Auto-Commit** | ✅ Active | Browser GitHub REST API + PM auto-commit per phase (blocked in mode 5) + RepoPanel Push All fallback |
 | **Deploy Engine** | ✅ Active | `deploy-trigger` edge fn + DeployPanel — Netlify/Vercel one-click deploy |
 | **FAS Generator** | ✅ Active | Phase 1A: PM Agent chat with OPEN/CLOSE pair validation |
 | **10 Behavioral Rules** | ✅ Active | Zero Spam, Ran≠Worked, No Silent Drops, Known Incomplete, etc. |
@@ -51,12 +52,12 @@ The user is the client — they describe what they want in natural language. NEX
 2. Phase 1A — FAS Generation (PM Agent)
    └─ PM generates Functional Architecture Sheet
    └─ OPEN/CLOSE function pairs validated automatically
-   └─ HITL: user reviews & approves
+   └─ Approval policy decides: request HITL or auto-pass
 
 3. Phase 1B — PRD (PM Agent) [AUTO-STARTED after 1A approved]
    └─ FAS becomes input context
    └─ PM generates Product Requirements Document
-   └─ HITL approval
+   └─ Approval policy evaluates systemic/design/agent-mode constraints
 
 4. Phase 2 → 3A → 4 → 5... [AUTO-CHAINED]
    └─ Each phase output feeds as structured context to next
@@ -70,14 +71,27 @@ The user is the client — they describe what they want in natural language. NEX
    └─ Notebook: 4-agent review (Code Review → QA → Security → Architect)
    └─ Execute: runs code in Deno sandbox → stdout/stderr/exit_code
    └─ Run Tests: test harness executes in Deno → PASS/FAIL table per test
-   └─ Commit: RepoPanel writes file to GitHub via file-writer edge fn
-   └─ HITL approval
+   └─ Commit: PM auto-commits phase output to GitHub (if token + repo configured, except Autonomy Mode 5)
+   └─ RepoPanel: optional Push All for reviewed Notebook entries
+   └─ Approval policy decides HITL granularity (function / agent / systemic / design / full autonomy)
 
 6. Phase 7 → 8 → 9 → 10 → 11 [AUTO-CHAINED]
    └─ Phase 8 QA: test cases generated (gate: blocked if tests_failed > 0)
    └─ Phase 9 Security: OWASP audit
    └─ Phase 11 DevOps: CI/CD config + DeployPanel auto-triggers deploy hook
 ```
+
+---
+
+## Autonomy Modes (Central Approval Policy Engine)
+
+| Mode | Behavior |
+|------|----------|
+| **1 — Strict per implementation** | Requires approval per implementation unit (function-level for coding phases). |
+| **2 — One approval per agent** | Each agent is approved once; next outputs from that agent auto-pass. |
+| **3 — Systemic changes only** | Requests approval only when global architecture vigilance detects systemic impact. |
+| **4 — Design only** | Requests approval only for design outputs (brand/UI/visual flows). |
+| **5 — Full autonomy** | No HITL requests; orchestrator runs end-to-end; PM GitHub auto-commit is blocked. |
 
 ---
 
@@ -120,12 +134,20 @@ The user is the client — they describe what they want in natural language. NEX
 │  ├─ LLM Review: CodeReview → QA → Security → Architect         │
 │  ├─ Execute: code-executor edge fn → stdout/stderr/exit_code   │
 │  ├─ Run Tests: Deno test harness → PASS/FAIL table             │
-│  └─ Commit: file-writer edge fn → GitHub repo                  │
+│  └─ Commit: PM auto-commit (GitHub REST API)                   │
 │                                                                │
 │  Deploy Panel (Phase 11 complete)                              │
 │  └─ deploy-trigger edge fn → Netlify / Vercel                  │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Control Layer (Global Coherence)
+
+- **GlobalArchitectureVigilance** records structural snapshots per phase and marks downstream phases as stale after upstream changes.
+- **Autonomy Policy Engine** is integrated in `OrchestratorStore` (`runPhaseWithLLM`, `requestApproval`, `resolveApproval`), not as an external add-on.
+- **Mode 5 Safety Rule:** orchestration remains autonomous, while GitHub auto-commit is intentionally disabled.
 
 ---
 
@@ -137,7 +159,6 @@ The user is the client — they describe what they want in natural language. NEX
 | `pm-chat` | PM Agent direct chat endpoint | ✅ Active |
 | `veritas-runner` | Module wiring analysis (live from Veritas panel) | ✅ Active |
 | `code-executor` | TypeScript/JS execution in Deno sandbox | ✅ Active |
-| `file-writer` | Write generated code to GitHub repo | ✅ Active |
 | `deploy-trigger` | Trigger Netlify/Vercel deployment | ✅ Active |
 
 ---
@@ -217,7 +238,6 @@ npx supabase functions deploy agent-llm
 npx supabase functions deploy pm-chat
 npx supabase functions deploy code-executor
 npx supabase functions deploy veritas-runner
-npx supabase functions deploy file-writer
 npx supabase functions deploy deploy-trigger
 ```
 

@@ -94,6 +94,20 @@ export class HITLManager {
         return true;
     }
 
+    /**
+     * Update summary text for a pending request (used by HITL "Modify" flow).
+     * Returns false if request ID is missing from pending queue.
+     */
+    public updateSummary(requestId: string, summary: string): boolean {
+        const request = this.pendingRequests.get(requestId);
+        if (!request) {
+            console.error(`[HITL] Request ${requestId} not found for summary update.`);
+            return false;
+        }
+        request.summary = summary;
+        return true;
+    }
+
     public getPending(): ApprovalRequest[] {
         return Array.from(this.pendingRequests.values());
     }

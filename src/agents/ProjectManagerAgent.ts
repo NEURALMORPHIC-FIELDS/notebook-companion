@@ -21,7 +21,7 @@ export class ProjectManagerAgent extends BaseAgent {
     public readonly role = 'project-manager';
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
-        const phase = (context['phase'] as string) || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(this.buildPrompt(phase, input), phase);
 
         return {

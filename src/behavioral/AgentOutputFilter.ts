@@ -23,6 +23,8 @@ export interface FilterResult {
 }
 
 export interface AgentContext {
+    phase?: string;
+    agentOutput?: unknown;
     phaseChanged?: boolean;
     errorOccurred?: boolean;
     userWaiting?: boolean;

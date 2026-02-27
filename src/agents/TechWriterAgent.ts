@@ -5,7 +5,7 @@ export class TechWriterAgent extends BaseAgent {
     public readonly role = 'tech-writer';
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
-        const phase = context['phase'] || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
         const llmResponse = await this.callLLM(
             phase === '10'
                 ? `Generează documentație pentru: "${input}". Include: README, API docs, changelog, ghid de utilizare.`

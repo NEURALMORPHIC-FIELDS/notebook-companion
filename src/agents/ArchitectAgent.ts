@@ -7,7 +7,7 @@ export class ArchitectAgent extends BaseAgent {
     private contradictionDetector = new ArchContradictionDetector();
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
-        const phase = context['phase'] || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
 
         if (phase === '3A') {
             const llmResponse = await this.callLLM(

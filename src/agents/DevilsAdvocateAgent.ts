@@ -30,7 +30,7 @@ export class DevilsAdvocateAgent extends BaseAgent {
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
         const agentOutputToContest = context['agentOutput'] as AgentOutput;
-        const phase = context['phase'] as string || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
 
         if (!agentOutputToContest) {
             return { agentRole: this.role, phase, content: 'No output to contest.' };

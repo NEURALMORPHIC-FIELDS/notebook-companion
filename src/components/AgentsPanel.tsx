@@ -1,10 +1,110 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { AGENTS } from "@/data/nexus-data";
 import { Sparkles, Settings2, Check, Terminal } from "lucide-react";
 import AgentConfigPopover from "@/components/AgentConfigPopover";
 import AgentIcon from "@/components/AgentIcon";
 import { type AgentApiConfig, loadAgentConfigs, saveAgentConfigs } from "@/data/agent-services";
+import { useOrchestratorStore } from "@/hooks/useOrchestratorStore";
+
+// Maps agent.id (from AGENTS[]) → localStorage key (from agent-services.ts)
+// Must stay in sync with ROLE_TO_CONFIG_KEY in AgentLLMService.ts
+const AGENT_ID_TO_CONFIG_KEY: Record<string, string> = {
+  'pm': 'pm',
+  'architect': 'architect',
+  'devils-advocate': 'da',
+  'tech-lead': 'techlead',
+  'backend': 'backend',
+  'frontend': 'frontend',
+  'qa': 'qa',
+  'security': 'security',
+  'code-reviewer': 'codereviewer',
+  'tech-writer': 'techwriter',
+  'devops': 'devops',
+  'brand': 'brand',
+  'uiux': 'uiux',
+  'asset-gen': 'assetgen',
+};
+
+const getConfigKey = (agentId: string): string => AGENT_ID_TO_CONFIG_KEY[agentId] ?? agentId;
+
+// Category → animation type
+const AGENT_ANIM: Record<string, 'scan' | 'pulse' | 'radar' | 'palette' | 'warn'> = {
+  pm: 'scan', architect: 'scan', 'tech-lead': 'scan', 'code-reviewer': 'scan',
+  backend: 'pulse', frontend: 'pulse', devops: 'pulse',
+  qa: 'radar', security: 'radar',
+  brand: 'palette', uiux: 'palette', 'asset-gen': 'palette',
+  'devils-advocate': 'warn',
+};
+
+function AgentWorkingAnimation({ agentId, color }: { agentId: string; color: string }) {
+  const type = AGENT_ANIM[agentId] ?? 'scan';
+  const c = color.replace('nexus-', '');
+  const hex: Record<string, string> = {
+    cyan: '#22d3ee', purple: '#a855f7', red: '#ef4444',
+    blue: '#3b82f6', green: '#22c55e', amber: '#f59e0b',
+  };
+  const clr = hex[c] ?? '#22d3ee';
+
+  if (type === 'scan') return (
+    <div className="relative flex items-center justify-center w-14 h-14">
+      {[0, 1, 2].map(i => (
+        <motion.div key={i} className="absolute rounded-full border"
+          style={{ width: 24 + i * 16, height: 24 + i * 16, borderColor: clr, opacity: 0.6 - i * 0.18 }}
+          animate={{ scale: [1, 1.18, 1], opacity: [0.6 - i * 0.18, 0.2, 0.6 - i * 0.18] }}
+          transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3, ease: 'easeInOut' }} />
+      ))}
+      <motion.div className="w-2 h-2 rounded-full" style={{ background: clr }}
+        animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />
+    </div>
+  );
+
+  if (type === 'pulse') return (
+    <div className="flex items-center gap-1">
+      {[0, 1, 2, 3, 4].map(i => (
+        <motion.div key={i} className="w-1 rounded-full" style={{ background: clr, originY: 1 }}
+          animate={{ height: [8, 24, 8] }}
+          transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.12, ease: 'easeInOut' }} />
+      ))}
+    </div>
+  );
+
+  if (type === 'radar') return (
+    <div className="relative flex items-center justify-center w-14 h-14">
+      <div className="absolute rounded-full border opacity-20" style={{ width: 52, height: 52, borderColor: clr }} />
+      <div className="absolute rounded-full border opacity-30" style={{ width: 34, height: 34, borderColor: clr }} />
+      <motion.div className="absolute w-[26px] h-[2px] origin-left rounded-full"
+        style={{ background: `linear-gradient(90deg, transparent, ${clr})` }}
+        animate={{ rotate: [0, 360] }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} />
+      <div className="w-1.5 h-1.5 rounded-full" style={{ background: clr }} />
+    </div>
+  );
+
+  if (type === 'palette') return (
+    <div className="relative flex items-center justify-center w-14 h-14">
+      <motion.div className="absolute w-10 h-10 rounded-full"
+        style={{ background: `conic-gradient(${clr}, #a855f7, #22d3ee, ${clr})`, opacity: 0.35 }}
+        animate={{ rotate: [0, 360] }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} />
+      <motion.div className="absolute w-6 h-6 rounded-full bg-nexus-surface" />
+      <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: clr }}
+        animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+    </div>
+  );
+
+  // warn (devils-advocate)
+  return (
+    <div className="relative flex items-center justify-center w-14 h-14">
+      {[0, 1].map(i => (
+        <motion.div key={i} className="absolute rounded-full border-2"
+          style={{ borderColor: clr }}
+          animate={{ width: [16, 52], height: [16, 52], opacity: [0.8, 0] }}
+          transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.6, ease: 'easeOut' }} />
+      ))}
+      <motion.span className="text-lg" animate={{ scale: [1, 1.2, 1], rotate: [-3, 3, -3] }}
+        transition={{ duration: 0.6, repeat: Infinity }}>⚡</motion.span>
+    </div>
+  );
+}
 
 const statusLabel: Record<string, { text: string; color: string }> = {
   active: { text: 'ACTIVE', color: 'bg-nexus-green/15 text-nexus-green ring-1 ring-nexus-green/20' },
@@ -33,19 +133,52 @@ const agentActivity: Record<string, string[]> = {
 
 export default function AgentsPanel() {
   const [configs, setConfigs] = useState<Record<string, AgentApiConfig[]>>({});
+  // Live agent statuses from the orchestrator store
+  const { agents: liveAgents } = useOrchestratorStore();
 
   useEffect(() => {
-    setConfigs(loadAgentConfigs());
+    const loaded = loadAgentConfigs();
+    const migrated = { ...loaded };
+    let changed = false;
+
+    Object.entries(AGENT_ID_TO_CONFIG_KEY).forEach(([agentId, configKey]) => {
+      if (agentId === configKey) return;
+      if (migrated[agentId] && !migrated[configKey]) {
+        migrated[configKey] = migrated[agentId];
+        delete migrated[agentId];
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      saveAgentConfigs(migrated);
+    }
+    setConfigs(migrated);
   }, []);
 
   const handleSave = (agentId: string, agentConfigs: AgentApiConfig[]) => {
-    const updated = { ...configs, [agentId]: agentConfigs };
+    const configKey = getConfigKey(agentId);
+    const updated = { ...configs, [configKey]: agentConfigs };
+    if (configKey !== agentId && updated[agentId]) {
+      delete updated[agentId];
+    }
     setConfigs(updated);
     saveAgentConfigs(updated);
   };
 
   const getConnectedCount = (agentId: string) => {
-    return (configs[agentId] || []).filter(c => c.enabled && c.apiKey).length;
+    const configKey = getConfigKey(agentId);
+    return (configs[configKey] || []).filter(c => c.enabled && c.apiKey).length;
+  };
+
+  // Get live status for an agent — falls back to static AGENTS[] if store not yet populated
+  const getLiveStatus = (agentId: string) => {
+    const live = liveAgents.find(a => a.id === agentId);
+    return live?.status ?? AGENTS.find(a => a.id === agentId)?.status ?? 'idle';
+  };
+
+  const getLivePhase = (agentId: string) => {
+    return liveAgents.find(a => a.id === agentId)?.currentPhase ?? null;
   };
 
   return (
@@ -73,7 +206,10 @@ export default function AgentsPanel() {
       {/* Agent Grid */}
       <div className="grid grid-cols-2 gap-4">
         {AGENTS.map((agent, i) => {
-          const st = statusLabel[agent.status];
+          const liveStatus = getLiveStatus(agent.id);
+          const livePhase = getLivePhase(agent.id);
+          const isWorking = liveStatus === 'active' || liveStatus === 'working';
+          const st = statusLabel[liveStatus] ?? statusLabel['idle'];
           const connected = getConnectedCount(agent.id);
           const logs = agentActivity[agent.id] || ['○ No activity'];
 
@@ -81,7 +217,7 @@ export default function AgentsPanel() {
             <AgentConfigPopover
               key={agent.id}
               agent={agent}
-              configs={configs[agent.id] || []}
+              configs={configs[getConfigKey(agent.id)] || []}
               onSave={handleSave}
             >
               <motion.div
@@ -117,8 +253,25 @@ export default function AgentsPanel() {
                     </div>
                   </div>
 
+                  {/* CENTER — working animation (only when actually working live) */}
+                  <div className="flex items-center justify-center w-16 shrink-0">
+                    <AnimatePresence>
+                      {isWorking && (
+                        <motion.div key="anim" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.6 }} transition={{ duration: 0.3 }}>
+                          <AgentWorkingAnimation agentId={agent.id} color={agent.color} />
+                          {livePhase && (
+                            <p className="text-[9px] font-mono text-center mt-1" style={{ color: '#22d3ee' }}>
+                              Phase {livePhase}
+                            </p>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
                   {/* RIGHT — mini terminal info */}
-                  <div className="w-[350px] shrink-0 bg-black/40 rounded-lg px-3 py-2.5 border border-border/40">
+                  <div className="w-[310px] shrink-0 bg-black/40 rounded-lg px-3 py-2.5 border border-border/40">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <Terminal size={10} className="text-nexus-green" />
                       <span className="text-[9px] font-mono font-bold text-nexus-green/90 uppercase tracking-wider">Activity</span>

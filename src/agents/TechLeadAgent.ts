@@ -5,7 +5,7 @@ export class TechLeadAgent extends BaseAgent {
     public readonly role = 'tech-lead';
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
-        const phase = context['phase'] || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
 
         if (phase === '4') {
             const llmResponse = await this.callLLM(

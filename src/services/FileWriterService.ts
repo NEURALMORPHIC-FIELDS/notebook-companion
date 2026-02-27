@@ -1,13 +1,10 @@
 /**
- * FileWriterService.ts — Browser client for file-writer edge function
+ * FileWriterService.ts — GitHub file writer
  * NEXUS AI v6 — Sprint B
  *
- * Calls the file-writer Supabase Edge Function with file content
- * and returns commit SHA + GitHub URL.
+ * Writes files DIRECTLY to GitHub REST API from the browser.
+ * No Supabase edge function needed — token never leaves the browser.
  */
-
-const WRITER_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file-writer`;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const REPO_CONFIG_KEY = 'nexus-repo-config';
 
@@ -15,13 +12,13 @@ export interface RepoConfig {
     owner: string;
     repo: string;
     branch: string;
-    token: string;  // GitHub PAT — stored in localStorage, never sent to Supabase backend as a secret
+    token: string;
 }
 
 export interface WriteFileParams {
-    path: string;        // e.g. "src/components/Foo.tsx"
-    content: string;     // raw text content
-    message: string;     // commit message
+    path: string;
+    content: string;
+    message: string;
 }
 
 export interface WriteFileResult {
@@ -54,45 +51,74 @@ export function saveRepoConfig(config: RepoConfig): void {
     try { localStorage.setItem(REPO_CONFIG_KEY, JSON.stringify(config)); } catch { }
 }
 
-// ── File writer ───────────────────────────────────────────────────────────────
+// ── File writer — direct GitHub API ──────────────────────────────────────────
 
 /**
  * Write or update a file in the configured GitHub repository.
- * Throws on network error or HTTP error.
+ * Calls GitHub REST API directly — token stays in browser, zero backend needed.
  */
 export async function writeFile(
     params: WriteFileParams,
     config?: RepoConfig,
 ): Promise<WriteFileResult> {
     const cfg = config ?? loadRepoConfig();
-    if (!cfg) throw new Error('No repository configured. Set owner/repo/branch/token in the Repo panel.');
+    if (!cfg?.token) throw new Error('No GitHub token configured. Connect GitHub in the Repo panel first.');
+    if (!cfg.owner || !cfg.repo) throw new Error('No repository configured. Set owner and repo in the Repo panel.');
 
-    const resp = await fetch(WRITER_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`,
-        },
-        body: JSON.stringify({
-            owner: cfg.owner,
-            repo: cfg.repo,
-            branch: cfg.branch,
-            token: cfg.token,
-            path: params.path,
-            content: params.content,
-            message: params.message,
-        }),
+    const branch = cfg.branch || 'main';
+    const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${params.path}`;
+    const headers: Record<string, string> = {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${cfg.token}`,
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+    };
+
+    // Fetch existing file SHA (required by GitHub for updates)
+    let existingSha: string | undefined;
+    try {
+        const checkResp = await fetch(`${apiBase}?ref=${branch}`, { headers });
+        if (checkResp.ok) {
+            const existing = await checkResp.json() as { sha?: string };
+            existingSha = existing.sha;
+        }
+    } catch { /* new file — no SHA needed */ }
+
+    // Encode content as base64 (GitHub API requirement)
+    const encoded = btoa(unescape(encodeURIComponent(params.content)));
+
+    const body: Record<string, string> = {
+        message: params.message,
+        content: encoded,
+        branch,
+    };
+    if (existingSha) body.sha = existingSha;
+
+    const resp = await fetch(apiBase, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body),
     });
 
     if (!resp.ok) {
         const errText = await resp.text().catch(() => 'Unknown error');
-        throw new Error(`file-writer HTTP ${resp.status}: ${errText}`);
+        throw new Error(`GitHub API ${resp.status}: ${errText}`);
     }
 
-    return resp.json() as Promise<WriteFileResult>;
+    const data = await resp.json() as {
+        content?: { sha?: string; html_url?: string; path?: string };
+        commit?: { sha?: string };
+    };
+
+    return {
+        committed: true,
+        sha: data.content?.sha ?? data.commit?.sha ?? '',
+        html_url: data.content?.html_url ?? `https://github.com/${cfg.owner}/${cfg.repo}/blob/${branch}/${params.path}`,
+        path: data.content?.path ?? params.path,
+    };
 }
 
-// ── Committed files log (localStorage) ───────────────────────────────────────
+// ── Committed files log ───────────────────────────────────────────────────────
 
 const LOG_KEY = 'nexus-committed-files';
 

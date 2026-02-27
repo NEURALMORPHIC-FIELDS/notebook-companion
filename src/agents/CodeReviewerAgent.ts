@@ -7,7 +7,7 @@ export class CodeReviewerAgent extends BaseAgent {
     private dropMonitor = new SilentDropMonitor('code-reviewer');
 
     protected async generateResponse(input: string, context: AgentContext): Promise<AgentOutput> {
-        const phase = context['phase'] || 'UNKNOWN';
+        const phase = context.phase || 'UNKNOWN';
 
         if (phase === '7') {
             const llmResponse = await this.callLLM(

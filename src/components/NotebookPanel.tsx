@@ -64,6 +64,7 @@ const REVIEW_PIPELINE = [
 
 const STORAGE_KEY = 'nexus-notebook-entries';
 const EVENT_NAME = 'nexus-notebook-submit';
+const REVIEW_REQUIRED_PHASES = new Set(['6A', '6B']);
 
 // ─── LLM — uses agent-llm edge function ─────────────
 const AGENT_LLM_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-llm`;
@@ -130,10 +131,15 @@ export default function NotebookPanel() {
         description: detail.description || '',
         timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         reviews: REVIEW_PIPELINE.map(r => ({ agent: r.label, status: 'pending' as const, output: '' })),
-        overallStatus: 'pending',
+        overallStatus: REVIEW_REQUIRED_PHASES.has(detail.phase || '?') ? 'pending' : 'passed',
       };
       setEntries(prev => [newEntry, ...prev]);
-      toast.success(`Code from ${newEntry.sourceAgent} queued for review`);
+      if (newEntry.overallStatus === 'pending') {
+        toast.success(`Phase ${newEntry.phase} output queued for review`);
+      } else {
+        toast.success(`Phase ${newEntry.phase} output saved to Notebook`);
+      }
+
     };
     window.addEventListener(EVENT_NAME, handler);
     return () => window.removeEventListener(EVENT_NAME, handler);
@@ -492,8 +498,8 @@ export default function NotebookPanel() {
                 <span className="text-[10px] font-mono font-bold text-foreground">Test Results</span>
                 {entry.testResult.tests_passed !== undefined && (
                   <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ml-1 ${(entry.testResult.tests_failed ?? 0) === 0
-                      ? 'bg-nexus-green/10 text-nexus-green'
-                      : 'bg-nexus-red/10 text-nexus-red'
+                    ? 'bg-nexus-green/10 text-nexus-green'
+                    : 'bg-nexus-red/10 text-nexus-red'
                     }`}>
                     {entry.testResult.tests_passed} pass / {entry.testResult.tests_failed} fail
                   </span>

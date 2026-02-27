@@ -22,12 +22,13 @@ const agentStatusColor = (status: string) => {
 };
 
 export default function Dashboard() {
-  const { phases, agents, pendingApprovals, veritasExitCode } = useOrchestratorStore();
+  const { phases, agents, pendingApprovals, veritasExitCode, globalVigilance } = useOrchestratorStore();
 
   const completedPhases = phases.filter(p => p.status === 'completed').length;
   const totalPhases = phases.length;
   const activeAgents = agents.filter(a => a.status === 'active' || a.status === 'working').length;
   const currentPhase = phases.find(p => p.status === 'in-progress');
+  const stalePhasesCount = globalVigilance.stalePhases.length;
 
   return (
     <div className="flex-1 overflow-auto p-6 space-y-6">
@@ -38,6 +39,9 @@ export default function Dashboard() {
           {currentPhase ? `Phase ${currentPhase.number} — ${currentPhase.name}` : 'No active phase'}
           {pendingApprovals.length > 0 && (
             <span className="ml-2 text-nexus-amber">• {pendingApprovals.length} pending approvals</span>
+          )}
+          {stalePhasesCount > 0 && (
+            <span className="ml-2 text-nexus-red">• {stalePhasesCount} stale phase(s) flagged by global vigilance</span>
           )}
         </p>
       </div>
@@ -69,8 +73,8 @@ export default function Dashboard() {
           icon={<Bot size={18} />}
           label="Active Agents"
           value={`${activeAgents}`}
-          sub={`${agents.length} total configured`}
-          color="primary"
+          sub={stalePhasesCount > 0 ? `${agents.length} configured • vigilance alert` : `${agents.length} total configured`}
+          color={stalePhasesCount > 0 ? 'destructive' : 'primary'}
         />
       </div>
 

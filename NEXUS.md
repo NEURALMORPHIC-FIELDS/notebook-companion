@@ -5,8 +5,8 @@
 
 **Project:** notebook-companion
 **Architecture Version:** v6
-**Implementation Status:** ✅ All Sprints A–E complete — full pipeline implemented.
-**Last Updated:** 2026-02-26
+**Implementation Status:** ✅ All Sprints A–F complete — full pipeline implemented.
+**Last Updated:** 2026-02-27
 
 ---
 
@@ -17,7 +17,7 @@
 | PM Agent chat (FAS generation) | ✅ Connected to pipeline | — |
 | 15-phase auto-sequencing (PhaseSequencer) | ✅ Implemented | — |
 | 14 specialized AI agents | ✅ All active | — |
-| HITL approval gate | ✅ Functional | — |
+| HITL + autonomy policy modes | ✅ Functional | Sprint F |
 | Devil's Advocate pre-HITL | ✅ Structured parsing | — |
 | Known Incomplete registry (append-only) | ✅ Functional | — |
 | Agent Notebook — 4-agent LLM review | ✅ Functional | — |
@@ -26,9 +26,10 @@
 | Session persistence (localStorage) | ✅ Functional | — |
 | Veritas (browser-side SanityGate) | ✅ Reads report | — |
 | **Veritas Live Run Button** | ✅ Calls veritas-runner edge fn | Sprint C |
-| **File Writer (GitHub API)** | ✅ `file-writer` edge fn + RepoPanel | Sprint B |
+| **GitHub Direct Writer + PM Auto-Commit** | ✅ Browser GitHub REST + PM auto-commit + RepoPanel | Sprint B |
 | **Test Runner** | ✅ Run Tests button + result table in Notebook | Sprint D |
 | **Deploy Engine** | ✅ `deploy-trigger` edge fn + DeployPanel | Sprint E |
+| **Global Architecture Vigilance** | ✅ Persistent structural state + stale downstream detection | Sprint F |
 
 ---
 
@@ -51,23 +52,23 @@
 
 ## Phase Completion Tracker
 
-| Phase | Name | Agent | Veritas | DA | HITL | Status |
-|-------|------|-------|---------|-----|------|--------|
+| Phase | Name | Agent | Veritas | DA | Approval Policy | Status |
+|-------|------|-------|---------|-----|-----------------|--------|
 | 0 | Onboarding | System | — | — | — | ✅ Complete |
-| 1A | FAS Generation | PM | — | — | Required | ⏳ Pending user project |
-| 1B | PRD | PM | — | — | Required | ⏳ Auto-starts after 1A |
-| 2 | Team Assembly | PM | — | — | Required | ⏳ Auto-starts after 1B |
-| 3A | Architecture | Architect | Required | Required | Required | ⏳ Pending |
-| 3B | Brand & Design | Brand + UX | — | — | Required | ⏳ Pending |
-| 4 | Technical Design | Tech Lead | — | Required | Required | ⏳ Pending |
-| 5 | WBS | PM | — | — | Required | ⏳ Pending |
-| 6A | Implementation Dev | Backend + Frontend | Required | — | Required | ⏳ Pending |
-| 6B | Implementation Assets | Asset Gen | — | — | — | ⏳ Pending |
-| 7 | Code Review | Code Reviewer | Required | Required | Required | ⏳ Pending |
-| 8 | QA & Testing | QA Engineer | Required | — | Required | ⏳ Pending |
-| 9 | Security Audit | Security Auditor | Required | Required | Required | ⏳ Pending |
-| 10 | Documentation | Tech Writer | — | — | Required | ⏳ Pending |
-| 11 | DevOps / Deploy | DevOps Engineer | Required | — | Required | ⏳ Pending |
+| 1A | FAS Generation | PM | — | — | Mode-driven (1–5) | ⏳ Pending user project |
+| 1B | PRD | PM | — | — | Mode-driven (1–5) | ⏳ Auto-starts after 1A |
+| 2 | Team Assembly | PM | — | — | Mode-driven (1–5) | ⏳ Auto-starts after 1B |
+| 3A | Architecture | Architect | Required | Required | Mode-driven (1–5) | ⏳ Pending |
+| 3B | Brand & Design | Brand + UX | — | — | Mode-driven (1–5, design-sensitive) | ⏳ Pending |
+| 4 | Technical Design | Tech Lead | — | Required | Mode-driven (1–5) | ⏳ Pending |
+| 5 | WBS | PM | — | — | Mode-driven (1–5) | ⏳ Pending |
+| 6A | Implementation Dev | Backend + Frontend | Required | — | Mode-driven (1–5, function-level in mode 1) | ⏳ Pending |
+| 6B | Implementation Assets | Asset Gen | — | — | Mode-driven (1–5, function-level in mode 1) | ⏳ Pending |
+| 7 | Code Review | Code Reviewer | Required | Required | Mode-driven (1–5) | ⏳ Pending |
+| 8 | QA & Testing | QA Engineer | Required | — | Mode-driven (1–5) | ⏳ Pending |
+| 9 | Security Audit | Security Auditor | Required | Required | Mode-driven (1–5) | ⏳ Pending |
+| 10 | Documentation | Tech Writer | — | — | Mode-driven (1–5) | ⏳ Pending |
+| 11 | DevOps / Deploy | DevOps Engineer | Required | — | Mode-driven (1–5) | ⏳ Pending |
 
 ---
 
@@ -79,11 +80,12 @@ Edge fn: `supabase/functions/code-executor/index.ts` · Service: `src/services/C
 - 10s timeout · 50KB code limit · 10KB output cap · Zero Deno permissions
 - UI: **Execute** + **Run Tests** buttons in Agent Notebook (after review pipeline)
 
-### Sprint B — GitHub File Writer
-Edge fn: `supabase/functions/file-writer/index.ts` · Service: `src/services/FileWriterService.ts`
+### Sprint B — GitHub Direct Writer + PM Auto-Commit
+Services: `src/services/FileWriterService.ts` · `src/services/GitHubService.ts`
 - GitHub REST API `PUT /repos/{owner}/{repo}/contents/{path}` — create or update
 - Auto-detects existing file SHA for updates · Base64-encodes content
-- UI: **GitHub Repo** panel — config form (owner/repo/branch/PAT) + commit history log
+- PM creates repo in Phase 1A and auto-commits phase outputs when token/repo are configured (except autonomy mode 5)
+- UI: **GitHub Repo** panel — connect token, create/select repo, Push All, commit history
 
 ### Sprint C — Veritas Live Run Button
 Component: `src/components/VeritasDashboard.tsx`
@@ -95,6 +97,7 @@ Component: `src/components/VeritasDashboard.tsx`
 Component: `src/components/NotebookPanel.tsx`
 - **🧪 Run Tests** button (after review pipeline) calls `runTests()` from CodeExecutorService
 - Test results table: test name · ✓ PASS / ✗ FAIL · duration ms
+- Notebook policy: implementation phases (6A/6B) start as `pending` (review required); non-code/documentation outputs are auto-`passed`
 - OrchestratorStore: Phase 8 advance blocked if `tests_failed > 0`
 
 ### Sprint E — Deploy Engine
@@ -102,6 +105,18 @@ Edge fn: `supabase/functions/deploy-trigger/index.ts` · Service: `src/services/
 - POSTs to Netlify or Vercel deploy hook URL
 - UI: **Deploy** panel — provider selector, hook URL, 🚀 Deploy Now, Phase 11 gate badge
 - Auto-triggers when Phase 11 completes (if hook configured)
+
+### Sprint F — Global Vigilance + Autonomy Policy Engine
+Services: `src/services/GlobalArchitectureVigilance.ts` · Store: `src/stores/OrchestratorStore.ts`
+- Persistent structural snapshots per phase output with stale downstream propagation
+- Approval policy modes integrated directly in orchestration:
+  - mode 1 (strict per implementation unit),
+  - mode 2 (one approval per agent),
+  - mode 3 (systemic changes only),
+  - mode 4 (design only),
+  - mode 5 (full autonomy)
+- PM GitHub auto-commit blocked automatically in mode 5
+- UI control added in `HITLPanel` without introducing a new tab
 
 ---
 
@@ -115,6 +130,7 @@ Edge fn: `supabase/functions/deploy-trigger/index.ts` · Service: `src/services/
 | Session state | `nexus-session-state` |
 | Known Incomplete items | `nexus-known-incomplete` |
 | Orchestrator state | `nexus-orchestrator-state` |
+| Global architecture vigilance | `nexus-global-vigilance-state` |
 | Notebook entries | `nexus-notebook-entries` |
 | GitHub repo config | `nexus-repo-config` |
 | Committed files log | `nexus-committed-files` |
